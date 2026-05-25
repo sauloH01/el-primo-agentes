@@ -1,0 +1,46 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  // Nombre del agente — el alumno lo escoge en Fase 1 del skill.
+  // Solo letras, números y guiones. Sin espacios.
+  "name": "mi-agente",
+
+  // Archivo principal del worker
+  "main": "src/index.ts",
+
+  // Fecha base de compatibilidad — afecta features disponibles
+  "compatibility_date": "2026-05-25",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Durable Object: donde vive y persiste el agente
+  "durable_objects": {
+    "bindings": [
+      { "name": "MiAgente", "class_name": "MiAgente" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["MiAgente"] }
+  ],
+
+  // Cron — el skill lo ajusta según lo que el alumno responda
+  // Formato: "minuto hora día_mes mes día_semana" (todo en UTC)
+  //
+  // Ejemplos:
+  //   "0 14 * * *"  → todos los días a las 14:00 UTC (8am CDMX)
+  //   "0 12 * * 1"  → todos los lunes a las 12:00 UTC
+  //   "0 */6 * * *" → cada 6 horas
+  "triggers": {
+    "crons": ["0 14 * * *"]
+  },
+
+  // Variables públicas (no secretas) — visible en el código deployado
+  "vars": {
+    "OPENAI_MODEL": "gpt-4o-mini"
+  }
+
+  // SECRETS (no van aquí — se suben con `wrangler secret put`):
+  //   OPENAI_API_KEY        → cargado desde tu cuenta OpenAI
+  //   PUSHOVER_USER_KEY     → tu USER_KEY de Pushover (siempre el mismo)
+  //   PUSHOVER_APP_TOKEN    → app token específico de este agente
+  //   <SKILL_INSERT_SECRETS_COMMENT>
+}

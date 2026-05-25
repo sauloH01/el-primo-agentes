@@ -1,0 +1,20 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Claude-mem auto-generated context files
+CLAUDE.md
+**/CLAUDE.md
+
+# Build artifacts (no aplica acá pero por si acaso)
+node_modules/
+dist/
+.wrangler/
+
+# Logs
+*.log
