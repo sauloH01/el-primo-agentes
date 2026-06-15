@@ -32,16 +32,42 @@ function normalizePhone(raw: string): string {
 }
 
 /**
- * Mapea el rango de presupuesto a valor numérico para HubSpot Deal Amount
- * Usa el punto medio del rango para mayor precisión
+ * Mapea el rango de presupuesto a valor numérico para HubSpot Deal Amount.
+ * Usa el punto medio del rango como valor representativo.
+ * Nunca retorna 0; el default conservador es $4M–$8M (6_000_000).
  */
-function mapBudgetToDealAmount(presupuesto: string | undefined): number {
-  if (!presupuesto) return 0;
-  if (presupuesto.includes("4M") || presupuesto.includes("4M - $8M")) return 6000000;
-  if (presupuesto.includes("8M") || presupuesto.includes("8M - $15M")) return 11500000;
-  if (presupuesto.includes("15M") || presupuesto.includes("15M - $30M")) return 22500000;
-  if (presupuesto.includes("30M") || presupuesto.includes("Más de $30M")) return 35000000;
-  return 0;
+function mapBudgetToAmount(presupuesto: string): number {
+  // Mapa exacto de valores del formulario → valor numérico (punto medio del rango)
+  const exactMap: Record<string, number> = {
+    "Menos de $4M": 2_000_000,
+    "$4M - $8M":    6_000_000,
+    "$8M - $15M":  11_500_000,
+    "$15M - $30M": 22_500_000,
+    "Más de $30M": 35_000_000,
+  };
+
+  let result: number;
+
+  if (presupuesto in exactMap) {
+    result = exactMap[presupuesto];
+  } else if (!presupuesto) {
+    result = 6_000_000; // campo no enviado → default conservador
+  } else if (presupuesto.includes("Menos")) {
+    result = 2_000_000;
+  } else if (presupuesto.includes("4M")) {
+    result = 6_000_000;
+  } else if (presupuesto.includes("8M")) {
+    result = 11_500_000;
+  } else if (presupuesto.includes("15M")) {
+    result = 22_500_000;
+  } else if (presupuesto.includes("30M") || presupuesto.includes("Más")) {
+    result = 35_000_000;
+  } else {
+    result = 6_000_000; // valor desconocido → default conservador
+  }
+
+  console.info(`[BUDGET_MAPPED] presupuesto: "${presupuesto}" → amount: ${result}`);
+  return result;
 }
 
 /**
@@ -69,11 +95,22 @@ function buildContactProperties(lead: LeadInput, normalizedPhone: string): HubSp
 }
 
 /**
- * Construye propiedades del Deal con atribución de origen
+ * Construye propiedades del Deal con atribución de origen.
+ * dealname sigue la plantilla: "{tipo} | {zona} — {nombre}", con fallbacks para campos vacíos.
+ * Truncado a 255 caracteres (límite de HubSpot para este campo).
  */
 function buildDealProperties(lead: LeadInput, dealAmount: number, env: Env): HubSpotDealProperties {
+  const tipoProyecto = lead.tipo?.trim()  || "Proyecto sin especificar";
+  const zona         = lead.zona?.trim()  || "Zona no indicada";
+  const nombre       = lead.nombre?.trim() || "Lead anónimo";
+
+  const rawDealname = `${tipoProyecto} | ${zona} — ${nombre}`;
+  const dealname    = rawDealname.length > 255 ? rawDealname.substring(0, 255) : rawDealname;
+
+  console.info(`[DEAL_CREATED] dealname: "${dealname}" | amount: ${dealAmount}`);
+
   return {
-    dealname: `${lead.tipo || "Proyecto"} - ${lead.zona || "General"} - ${lead.nombre}`,
+    dealname,
     amount: dealAmount.toString(),
     pipeline: env.HUBSPOT_PIPELINE_ID,
     dealstage: env.HUBSPOT_DEALSTAGE_ID,
@@ -249,18 +286,19 @@ export default {
       try {
         body = await request.json();
       } catch {
-        return new Response(JSON.stringify({ success: false, error: "Invalid JSON payload" } as ErrorResponse), {
-          status: 400,
-          headers: corsHeaders,
-        });
+        // HTTP 200 para no romper la experiencia del frontend; success: false indica el error
+        return new Response(
+          JSON.stringify({ success: false, error: "El cuerpo de la solicitud no es JSON válido" } as ErrorResponse),
+          { status: 200, headers: corsHeaders }
+        );
       }
 
       const validation = validateLeadInput(body);
       if (!validation.valid) {
-        return new Response(JSON.stringify({ success: false, error: validation.error } as ErrorResponse), {
-          status: 400,
-          headers: corsHeaders,
-        });
+        return new Response(
+          JSON.stringify({ success: false, error: validation.error } as ErrorResponse),
+          { status: 200, headers: corsHeaders }
+        );
       }
 
       const lead = validation.data;
@@ -275,7 +313,7 @@ export default {
       }
 
       const normalizedPhone = normalizePhone(lead.telefono);
-      const dealAmount = mapBudgetToDealAmount(lead.presupuesto);
+      const dealAmount = mapBudgetToAmount(lead.presupuesto ?? "");
 
       // Headers autenticados para HubSpot API
       const hsHeaders = {
@@ -317,6 +355,7 @@ export default {
         success: true,
         contactId,
         dealId,
+        dealAmount,
         correlationId,
         message:
           "Lead created successfully. Use correlationId as [Ref-ID] token in WhatsApp message for manual audit trail closure. " +

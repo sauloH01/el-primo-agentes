@@ -77,6 +77,7 @@ export interface SuccessResponse {
   success: true;
   contactId: string;
   dealId: string | null;
+  dealAmount: number; // Valor numérico mapeado desde el rango de presupuesto
   correlationId: string; // Token único para vincular WhatsApp ↔ CRM ↔ Analítica
   message: string;
 }
