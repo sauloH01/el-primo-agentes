@@ -257,4 +257,7 @@ if ($failedTests -eq 0 -and $passedTests -eq 5) {
 
 Write-Host ""
 Write-Host "NEXT STEPS:" -ForegroundColor Yellow
-Write-Host "1. Check HubSpot Dashboard for new cont
+Write-Host "1. Check HubSpot Dashboard for new contacts" -ForegroundColor White
+Write-Host "2. Verify Cloudflare Logs at dash.cloudflare.com" -ForegroundColor White
+Write-Host "3. Look for [LEAD_INGESTION_START] tags" -ForegroundColor White
+Write-Host ""
