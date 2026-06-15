@@ -59,13 +59,12 @@ function buildContactProperties(lead: LeadInput, normalizedPhone: string): HubSp
     presupuesto_rango: lead.presupuesto,
     mensaje_lead: lead.mensaje || "",
     fuente_lead: lead.source || "Meta Ads",
-
-    // 🎯 ATRIBUCIÓN AVANZADA — Propiedades nativas de HubSpot Analytics
-    // Estas propiedades son reconocidas por HubSpot para reporting y atribución
-    hs_analytics_source: "PAID_SEARCH", // Indicador: este lead viene de tráfico pago (Meta Ads)
-    hs_analytics_source_data_1: lead.utm_campaign || "Campaña Fusa MVP", // Nombre de la campaña
-    hs_analytics_source_data_2: lead.utm_source || "facebook_instagram", // Fuente (red publicitaria)
-    hs_analytics_source_data_3: lead.utm_medium || "cpc", // Medio (cost-per-click)
+    // Atribución UTM en campos custom (hs_analytics_* son de solo lectura en HubSpot)
+    utm_source_lead: lead.utm_source || "",
+    utm_medium_lead: lead.utm_medium || "",
+    utm_campaign_lead: lead.utm_campaign || "",
+    utm_content_lead: lead.utm_content || "",
+    utm_term_lead: lead.utm_term || "",
   };
 }
 
@@ -78,9 +77,7 @@ function buildDealProperties(lead: LeadInput, dealAmount: number, env: Env): Hub
     amount: dealAmount.toString(),
     pipeline: env.HUBSPOT_PIPELINE_ID,
     dealstage: env.HUBSPOT_DEALSTAGE_ID,
-    // Propagamos atribución al Deal también
-    hs_analytics_source: "PAID_SEARCH",
-    hs_analytics_source_data_1: lead.utm_campaign || "Campaña Fusa MVP",
+    // hs_analytics_source* son de solo lectura en HubSpot (ver nota en buildContactProperties).
   };
 }
 
@@ -347,3 +344,4 @@ export default {
     }
   },
 };
+                                                                                                                                                                                                                                                                                                          

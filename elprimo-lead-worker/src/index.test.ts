@@ -182,11 +182,12 @@ describe("HubSpot Lead Worker — Production-Grade Tests", () => {
   // TESTS — UTM Attribution (NEW)
   // ────────────────────────────────────────────────────────
 
-  it("should map UTM parameters to HubSpot native analytics properties", async () => {
+  it("should NOT send read-only hs_analytics_* properties (they cause HubSpot 400)", async () => {
     capturedFetchCalls = [];
     const payload = {
       nombre: "Test User",
       telefono: "3001234567",
+      source: "Meta Ads",
       utm_campaign: "Black Friday Sale",
       utm_source: "facebook",
       utm_medium: "social_cpc",
@@ -198,42 +199,26 @@ describe("HubSpot Lead Worker — Production-Grade Tests", () => {
     const response = await worker.fetch(request, env);
     expect(response.status).toBe(200);
 
-    // Verify contact creation includes mapped UTM properties
+    // hs_analytics_* son de solo lectura en HubSpot y devuelven 400 si se escriben.
+    // El worker NO debe incluirlas en el payload de contacto ni de deal.
     const contactCall = capturedFetchCalls.find((c) => c.url.includes("/objects/contacts") && !c.url.includes("/search"));
     expect(contactCall?.body).toBeDefined();
     if (contactCall?.body) {
       const body = JSON.parse(contactCall.body) as { properties: Record<string, string> };
       const props = body.properties;
-      // Native HubSpot analytics properties
-      expect(props.hs_analytics_source).toBe("PAID_SEARCH");
-      expect(props.hs_analytics_source_data_1).toBe("Black Friday Sale");
-      expect(props.hs_analytics_source_data_2).toBe("facebook");
-      expect(props.hs_analytics_source_data_3).toBe("social_cpc");
+      expect(props.hs_analytics_source).toBeUndefined();
+      expect(props.hs_analytics_source_data_1).toBeUndefined();
+      expect(props.hs_analytics_source_data_2).toBeUndefined();
+      expect(props.hs_analytics_source_data_3).toBeUndefined();
+      // La fuente se conserva en una propiedad custom escribible.
+      expect(props.fuente_lead).toBe("Meta Ads");
     }
-  });
 
-  it("should use default values when UTM parameters are missing", async () => {
-    capturedFetchCalls = [];
-    const payload = {
-      nombre: "Test User",
-      telefono: "3001234567",
-      // NO UTM params
-    };
-    const request = new Request("http://example.com/lead", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    const response = await worker.fetch(request, env);
-    expect(response.status).toBe(200);
-
-    const contactCall = capturedFetchCalls.find((c) => c.url.includes("/objects/contacts") && !c.url.includes("/search"));
-    if (contactCall?.body) {
-      const body = JSON.parse(contactCall.body) as { properties: Record<string, string> };
-      const props = body.properties;
-      // Should default to campaign MVP
-      expect(props.hs_analytics_source_data_1).toBe("Campaña Fusa MVP");
-      expect(props.hs_analytics_source_data_2).toBe("facebook_instagram");
-      expect(props.hs_analytics_source_data_3).toBe("cpc");
+    const dealCall = capturedFetchCalls.find((c) => c.url.includes("/objects/deals"));
+    if (dealCall?.body) {
+      const body = JSON.parse(dealCall.body) as { properties: Record<string, string> };
+      expect(body.properties.hs_analytics_source).toBeUndefined();
+      expect(body.properties.hs_analytics_source_data_1).toBeUndefined();
     }
   });
 

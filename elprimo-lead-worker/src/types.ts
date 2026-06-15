@@ -47,11 +47,13 @@ export interface HubSpotContactProperties {
   mensaje_lead?: string;
   // PROPIEDADES NATIVAS DE HUBSPOT PARA ANALÍTICA
   // Estos campos son reconocidos nativamente por HubSpot
-  fuente_lead?: string; // Source field
-  hs_analytics_source?: string; // PAID_SEARCH | ORGANIC_SEARCH | REFERRAL | DIRECT | SOCIAL | EMAIL | OFFLINE | PAID_SOCIAL | MARKETING_AUTOMATION | WEBINAR | ADVERTISEMENT | BLOG | CONTACT_API | OTHER
-  hs_analytics_source_data_1?: string; // Campaign name
-  hs_analytics_source_data_2?: string; // Source (facebook_instagram, google, etc)
-  hs_analytics_source_data_3?: string; // Medium (cpc, organic, email, etc)
+  fuente_lead?: string; // Canal de origen (Meta Ads, WhatsApp directo, etc.)
+  // Atribución UTM — campos custom (_lead suffix para no colisionar con analytics interno)
+  utm_source_lead?: string;   // ej: facebook, instagram, google
+  utm_medium_lead?: string;   // ej: cpc, paid_social, email
+  utm_campaign_lead?: string; // ej: fusa-mvp-cocinas-jun26
+  utm_content_lead?: string;  // ej: carrusel-antes-despues, video-testimonial
+  utm_term_lead?: string;     // ej: cocinas-fusagasuga, closets-chinauta
 }
 
 /**
