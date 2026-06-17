@@ -288,6 +288,11 @@ async function handleAdmin(request: Request, env: Env, url: URL): Promise<Respon
     return json(await db.getStats());
   }
 
+  // GET /api/admin/stats/extended  — revenue, funnel, stale leads
+  if (request.method === "GET" && sub[0] === "stats" && sub[1] === "extended") {
+    return json(await db.getExtendedStats());
+  }
+
   // GET /api/admin/agents
   if (request.method === "GET" && sub[0] === "agents" && sub.length === 1) {
     return json({ agents: await db.listAgents() });
@@ -331,6 +336,20 @@ async function handleAdmin(request: Request, env: Env, url: URL): Promise<Respon
     await whatsapp.sendMessage(lead.phone, body.trim());
     await db.appendMessage(lead.id, "out", body.trim());
     await db.logEvent("manual_reply", lead.id, {});
+    return json({ ok: true });
+  }
+
+  // GET /api/admin/leads/:id/events  — timeline de actividad
+  if (request.method === "GET" && sub[0] === "leads" && sub[2] === "events") {
+    return json({ events: await db.getLeadEvents(sub[1]) });
+  }
+
+  // POST /api/admin/leads/:id/note  — nota de Audenar
+  if (request.method === "POST" && sub[0] === "leads" && sub[2] === "note") {
+    const { nota } = (await request.json().catch(() => ({}))) as { nota?: string };
+    if (!nota || !nota.trim()) return json({ error: "nota vacía" }, 400);
+    await db.addNote(sub[1], nota);
+    await db.logEvent("note_added", sub[1], { preview: nota.substring(0, 100) });
     return json({ ok: true });
   }
 

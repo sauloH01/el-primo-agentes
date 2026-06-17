@@ -18,7 +18,13 @@ export class WhatsAppClient {
 
   async sendMessage(to: string, body: string): Promise<void> {
     const url = `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}/Messages.json`;
-    const auth = btoa(`${this.accountSid}:${this.authToken}`);
+    // Encode via TextEncoder → garantiza que btoa recibe bytes puros (0–255)
+    // aunque el token tenga caracteres no-Latin1 por encoding del sistema.
+    const cred = `${this.accountSid}:${this.authToken}`;
+    const credBytes = new TextEncoder().encode(cred);
+    let bin = "";
+    for (let i = 0; i < credBytes.length; i++) bin += String.fromCharCode(credBytes[i]);
+    const auth = btoa(bin);
 
     // Asegurar formato whatsapp: para Twilio
     const toFormatted = to.startsWith("+") ? to : `+${to}`;
