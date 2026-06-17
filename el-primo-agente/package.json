@@ -1,0 +1,23 @@
+{
+  "name": "el-primo-agente",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker - Agente de WhatsApp EL PRIMO (prospecta, califica) + API admin del dashboard",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute elprimo-crm --file=src/schema.sql",
+    "db:init:local": "wrangler d1 execute elprimo-crm --local --file=src/schema.sql",
+    "typecheck": "tsc --noEmit"
+  },
+  "author": "Horizontes IA",
+  "license": "MIT",
+  "dependencies": {
+    "openai": "^4.67.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240925.0",
+    "typescript": "^5.6.2",
+    "wrangler": "^4.101.0"
+  }
+}
