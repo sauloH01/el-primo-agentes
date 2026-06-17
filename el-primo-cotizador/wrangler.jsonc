@@ -21,7 +21,7 @@
   "vars": {
     "OPENAI_MODEL": "gpt-4o-mini",
     // A qué correo le llegan las cotizaciones para revisar (Audenar / Saulo).
-    "OWNER_EMAIL": "saulohs16@gmail.com",
+    "OWNER_EMAIL": "proyectos@carpinteriaelprimo.com",
     // Desde qué correo se envían. onboarding@resend.dev solo envía a TU correo
     // de la cuenta Resend. Con dominio verificado, usar "cotizaciones@elprimo.com".
     "FROM_EMAIL": "EL PRIMO <onboarding@resend.dev>",

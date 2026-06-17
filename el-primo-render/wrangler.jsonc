@@ -22,7 +22,7 @@
     "IMAGE_SIZE": "1536x1024",
     "IMAGE_QUALITY": "medium",
     // A qué correo llega el render para que Audenar lo revise.
-    "OWNER_EMAIL": "saulohs16@gmail.com",
+    "OWNER_EMAIL": "proyectos@carpinteriaelprimo.com",
     "FROM_EMAIL": "EL PRIMO <onboarding@resend.dev>"
   }
 

@@ -16,7 +16,7 @@
 
   "vars": {
     "OPENAI_MODEL": "gpt-4o-mini",
-    "OWNER_EMAIL": "saulohs16@gmail.com",
+    "OWNER_EMAIL": "proyectos@carpinteriaelprimo.com",
     "FROM_EMAIL": "EL PRIMO <onboarding@resend.dev>",
     // WhatsApp de Audenar (solo dígitos) — recibe los avisos de cierre/transferencia.
     "AUDENAR_WHATSAPP": "573223306682"
