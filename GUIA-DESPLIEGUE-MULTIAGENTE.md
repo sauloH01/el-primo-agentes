@@ -117,3 +117,21 @@ URLs reales de los pasos 2 y 3 (si tu subdominio no es `saulohs16`, edítalas y 
 | Cotizador | `el-primo-cotizador.<sub>.workers.dev/notificar` | calificador (X-Secret) |
 | Render | `el-primo-render.<sub>.workers.dev/generar` | cotizador (X-Secret) |
 | Closer | `el-primo-closer.<sub>.workers.dev/webhook/message` | WhatsApp + cotizador |
+
+---
+
+## 🗒️ Registro de despliegues / iteraciones
+
+- **2026-06-17 — Cotizador probado en local + rotación de llave OpenAI en producción**
+  - Prueba local del `el-primo-cotizador` (`/cotizar`) **OK** de extremo a extremo:
+    precio calculado (`$9M – $13,4M` para una cocina en L de 4m en Chinauta), IA
+    redactó la propuesta, se generó el DOCX y Resend envió el correo. ✅
+  - Se detectó que la llave de OpenAI anterior estaba **sin saldo** (error `429
+    quota`). Se **rotó `OPENAI_API_KEY` en producción** del `el-primo-agente`
+    (`wrangler secret put`) + `wrangler deploy`. El calificador en vivo vuelve a
+    responder. Version ID `ec3c729c`.
+  - ⚠️ **Pendiente Resend**: en modo gratis solo envía al correo de la cuenta
+    (`saulo.hernandez.s@uniautonoma.edu.co`). Para enviar a Audenar hay que
+    **verificar un dominio** en resend.com/domains y cambiar `FROM_EMAIL`
+    (p. ej. `cotizaciones@carpinteriaelprimo.com`).
+  - ⚠️ **Pendiente**: desplegar los 3 nuevos (cotizador, closer, render) + sus secrets.
