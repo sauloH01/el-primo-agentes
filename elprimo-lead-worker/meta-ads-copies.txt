@@ -1,0 +1,115 @@
+=============================================================
+COPIES META ADS — EL PRIMO Carpintería | Campaña Lanzamiento
+=============================================================
+Segmentación: Hombres y mujeres, 30-65 años
+Zonas: Fusagasugá + 20 km (Chinauta, Silvania, Arbeláez)
+Objetivo: Leads | Evento de optimización: Lead
+Presupuesto sugerido: $20.000–$30.000 COP/día
+=============================================================
+
+╔═══════════════════════════════════════════════════════════╗
+║ ÁNGULO 1 — Efecto Wow / Estatus                          ║
+║ Para el dueño de finca que quiere impresionar            ║
+╚═══════════════════════════════════════════════════════════╝
+
+TEXTO PRINCIPAL (125 car. máx):
+  Tu finca merece una cocina que dé de qué hablar.
+  Diseño 3D, materiales RH y solo 4 proyectos al mes.
+
+DESCRIPCIÓN (250 car. máx):
+  Fabricamos muebles de alta gama para fincas en Fusagasugá,
+  Chinauta y Silvania. Tableros melamínicos resistentes a la
+  humedad, cantos termo-sellados a 180°C y un diseño 3D
+  preliminar gratuito antes de fabricar ni un tornillo.
+  Solo trabajamos 4 proyectos al mes — agenda tu visita hoy.
+
+CTA: Agendar visita técnica
+
+URL DE DESTINO:
+  https://carpinteriaelprimo.com/#contacto
+
+PARÁMETROS UTM (pegar en campo "Parámetros de la URL" en Meta):
+  utm_source=facebook&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}
+
+─────────────────────────────────────────────────────────────
+
+╔═══════════════════════════════════════════════════════════╗
+║ ÁNGULO 2 — Cero Dolores de Cabeza                        ║
+║ Para el cliente harto de maestros informales             ║
+╚═══════════════════════════════════════════════════════════╝
+
+TEXTO PRINCIPAL (125 car. máx):
+  Sin maestros que desaparecen. Sin costos que se disparan.
+  EL PRIMO entrega en la fecha pactada, o no cobramos.
+
+DESCRIPCIÓN (250 car. máx):
+  Diseño 3D antes de fabricar, contrato formal, materiales
+  de primera calidad y garantía por escrito. Más de 120
+  proyectos entregados en Fusagasugá y Chinauta sin un solo
+  cliente insatisfecho. Agenda tu visita técnica gratuita
+  esta semana y recibe tu cotización en 48 horas.
+
+CTA: Solicitar cotización
+
+URL DE DESTINO:
+  https://carpinteriaelprimo.com/#contacto
+
+PARÁMETROS UTM:
+  utm_source=facebook&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}
+
+─────────────────────────────────────────────────────────────
+
+╔═══════════════════════════════════════════════════════════╗
+║ ÁNGULO 3 — Transformación / Antes y Después              ║
+║ Para quien quiere maximizar su espacio                   ║
+╚═══════════════════════════════════════════════════════════╝
+
+TEXTO PRINCIPAL (125 car. máx):
+  De cocina pequeña a espacio funcional de lujo.
+  Muebles a medida con diseño 3D incluido. Sin obra.
+
+DESCRIPCIÓN (250 car. máx):
+  Cocinas y closets 100% a medida en tablero melamínico RH
+  resistente a la humedad del clima andino. Aprovechamos
+  cada centímetro de tu espacio con diseño 3D antes de
+  fabricar. Sin obra, sin polvo, sin sorpresas en el precio.
+  Agendamos tu visita técnica gratuita esta semana.
+
+CTA: Ver mi diseño 3D gratis
+
+URL DE DESTINO:
+  https://carpinteriaelprimo.com/#contacto
+
+PARÁMETROS UTM:
+  utm_source=instagram&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}
+
+=============================================================
+TABLA RESUMEN
+=============================================================
+
+| Ángulo            | Texto principal (125 car.)                     | Descripción (250 car.)                                       | CTA                      |
+|-------------------|------------------------------------------------|--------------------------------------------------------------|--------------------------|
+| Efecto Wow        | Tu finca merece una cocina que dé de qué       | Fabricamos muebles de alta gama para fincas en Fusagasugá,  | Agendar visita técnica   |
+|                   | hablar. Diseño 3D, materiales RH y solo        | Chinauta y Silvania. Tableros melamínicos RH, cantos         |                          |
+|                   | 4 proyectos al mes.                            | termo-sellados a 180°C y diseño 3D gratuito. Solo 4         |                          |
+|                   |                                                | proyectos al mes — agenda tu visita hoy.                     |                          |
+|-------------------|------------------------------------------------|--------------------------------------------------------------|--------------------------|
+| Cero dolores      | Sin maestros que desaparecen. Sin costos       | Diseño 3D antes de fabricar, contrato formal, materiales     | Solicitar cotización     |
+|                   | que se disparan. EL PRIMO entrega en la        | de primera calidad y garantía por escrito. Más de 120        |                          |
+|                   | fecha pactada, o no cobramos.                  | proyectos entregados. Visita técnica gratuita esta semana.   |                          |
+|-------------------|------------------------------------------------|--------------------------------------------------------------|--------------------------|
+| Transformación    | De cocina pequeña a espacio funcional de       | Cocinas y closets 100% a medida en tablero melamínico RH.   | Ver mi diseño 3D gratis  |
+|                   | lujo. Muebles a medida con diseño 3D           | Aprovechamos cada cm con diseño 3D antes de fabricar.        |                          |
+|                   | incluido. Sin obra.                            | Sin obra, sin polvo, sin sorpresas. Visita gratuita.         |                          |
+
+=============================================================
+NOTAS DE PRODUCCIÓN
+=============================================================
+• Formato recomendado: Carrusel (Ángulo 1), Video 15s (Ángulo 2), Imagen antes/después (Ángulo 3)
+• Relación de aspecto: 1:1 (feed) o 9:16 (Reels/Stories)
+• Texto en imagen: máximo 20% del área para mejor alcance
+• Presupuesto inicial: $20.000 COP/día por ángulo ($60.000 total)
+  Pausa los que tengan CPL > $15.000 COP después de 5 días
+
+=============================================================
+Versión: 1.0 | Creado: 2026-06-15

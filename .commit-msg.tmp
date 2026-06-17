@@ -1,0 +1,16 @@
+deploy: sistema multi-agente en produccion — cotizador, closer, render
+
+- Cotizador: desplegado en https://el-primo-cotizador.saulohs16.workers.dev
+  (Version ID 811ea4a2). Recibe leads del calificador, calcula precio,
+  redacta propuesta con IA y envía DOCX por Resend a Audenar.
+- Render: desplegado en https://el-primo-render.saulohs16.workers.dev
+  (Version ID 31e716fa). Genera render 3D (gpt-image-1) + plano 2D SVG
+  acotado. Envía al correo de Audenar para revisar antes de mostrar.
+- Closer: desplegado en https://el-primo-closer.saulohs16.workers.dev
+  (Version ID 2464d333). DO por teléfono, secuencia de 4 follow-ups,
+  maneja objeciones y avisa a Audenar en cierre/transferencia/lead-frio.
+- Calificador: redeployed (Version ID 335b5295) con COTIZADOR_SECRET
+  para validar llamadas salientes al cotizador.
+- Todos 3 agentes comparten secrets X-Secret para autenticacion mutua.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

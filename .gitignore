@@ -18,3 +18,8 @@ dist/
 
 # Logs
 *.log
+
+# Graphify (grafo de conocimiento regenerable con `graphify update .`)
+graphify-out/
+# Clon local de la herramienta graphify (no forma parte del proyecto)
+graphify/

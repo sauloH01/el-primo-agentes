@@ -1,5 +1,6 @@
 ---
-name: crear-agente
+name: 
+
 description: Crea automatizaciones inteligentes (agentes de IA) en la nube de Cloudflare, paso a paso, en español sencillo, sin necesidad de saber programar. Úsalo cuando alguien escriba "/crear-agente", "quiero hacer un agente", "quiero automatizar [X]", "quiero un sistema que me [Y]", "ayúdame a construir una automatización", "necesito un bot que [Z]", "automatiza esto por mí", "quiero algo que haga [W] solo", o cualquier variación donde una persona (probablemente no-programadora) quiere construir una automatización personal o de negocio que corra sola en internet. El skill detecta el sistema operativo (Mac, Windows o Linux), guía instalación de todo lo necesario, pregunta en lenguaje natural qué quiere automatizar, traduce esa idea a una arquitectura técnica, ayuda a obtener todas las llaves de acceso de los servicios que se vayan a usar, genera el código del agente, lo prueba localmente, y lo publica en producción para que corra solo desde Cloudflare. Diseñado para usuarios LATAM que escuchan "agente de IA" pero no saben qué es un endpoint ni un cron. Stack base: Cloudflare Agents SDK + OpenAI + Pushover para notificaciones. Cero tecnicismos sin traducción.
 ---
 

@@ -1,0 +1,58 @@
+=============================================================
+RESPUESTAS RÁPIDAS — WhatsApp Business EL PRIMO Carpintería
+=============================================================
+
+RESPUESTA RÁPIDA: /bienvenida
+-------------------------------------------------------------
+¡Hola! Qué gusto saludarte. Qué gran proyecto tienes en mente
+para tu espacio. Precisamente nos especializamos en acabados
+premium y alta durabilidad. Para agendar tu visita técnica y
+proceder con el diseño 3D preliminar, ¿te parece bien si
+agendamos una breve llamada de 3 minutos hoy o prefieres
+mañana en la mañana?
+
+NOTA PARA AUDENAR:
+  • Esta respuesta rápida es una BASE de velocidad, no un
+    mensaje automático.
+  • Antes de enviarla, personaliza el saludo con el nombre
+    del cliente: "¡Hola, [Nombre]! ..."
+  • Si el cliente viene de un anuncio, puedes añadir:
+    "Vi que te interesó nuestro proyecto de [cocinas/closets]."
+  • El objetivo de este primer mensaje es SIEMPRE conseguir
+    una llamada o confirmar la visita técnica. No cotices
+    por chat hasta tener la visita agendada.
+
+CÓMO CONFIGURARLA EN WHATSAPP BUSINESS:
+  1. Abre WhatsApp Business en tu celular.
+  2. Toca los tres puntos (⋮) > Herramientas para la empresa.
+  3. Selecciona "Respuestas rápidas".
+  4. Toca el ícono "+" para agregar una nueva.
+  5. En "Mensaje" pega el texto de arriba (personalizando
+     el nombre antes de enviar).
+  6. En "Atajo" escribe: bienvenida
+  7. Guarda. Para usarla, escribe "/" en el chat y selecciona
+     /bienvenida de la lista.
+
+=============================================================
+RESPUESTA RÁPIDA: /visita
+-------------------------------------------------------------
+Perfecto, [Nombre]. Agendamos tu visita técnica sin costo.
+¿En qué dirección queda tu proyecto (Fusagasugá, Chinauta,
+Silvania...)? Con eso te confirmo disponibilidad esta semana.
+
+NOTA: Usar cuando el cliente ya mostró interés y quiere
+avanzar. Completar siempre con el nombre y municipio.
+
+=============================================================
+RESPUESTA RÁPIDA: /presupuesto
+-------------------------------------------------------------
+[Nombre], el presupuesto lo preparamos después de la visita
+técnica, así te damos un precio exacto y no una estimación
+que luego cambia. La visita es gratuita y sin compromiso.
+¿Cuándo te queda bien esta semana?
+
+NOTA: Usar cuando el cliente pregunta precio antes de la
+visita. Evita cotizar sin haber visto el espacio.
+
+=============================================================
+Versión: 1.0 | Creado: 2026-06-15
