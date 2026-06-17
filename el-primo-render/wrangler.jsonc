@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  "name": "el-primo-render",
+  "main": "src/index.ts",
+
+  "compatibility_date": "2026-05-25",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "account_id": "0fb22483300c6f8b8d6e8644424b396e",
+
+  "durable_objects": {
+    "bindings": [{ "name": "Render", "class_name": "Render" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Render"] }],
+
+  "vars": {
+    // Modelo de imagen de OpenAI. gpt-image-1 es el actual.
+    "OPENAI_IMAGE_MODEL": "gpt-image-1",
+    // Tamaño y calidad del render. medium equilibra costo/calidad.
+    // Tamaños válidos: 1024x1024, 1536x1024 (horizontal), 1024x1536 (vertical).
+    "IMAGE_SIZE": "1536x1024",
+    "IMAGE_QUALITY": "medium",
+    // A qué correo llega el render para que Audenar lo revise.
+    "OWNER_EMAIL": "saulohs16@gmail.com",
+    "FROM_EMAIL": "EL PRIMO <onboarding@resend.dev>"
+  }
+
+  // SECRETS (wrangler secret put):
+  //   OPENAI_API_KEY  → llave de OpenAI (con acceso a imágenes)
+  //   RESEND_API_KEY  → llave de Resend
+  //   RENDER_SECRET   → la MISMA que en el cotizador
+}

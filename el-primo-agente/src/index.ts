@@ -141,12 +141,66 @@ async function handleWhatsAppWebhook(
   });
 
   // 9) Tareas en segundo plano
+  //    - avisar a Audenar si califica
+  //    - notificar al cotizador SOLO al transicionar a calificado (no spamear)
+  //    - espejar el lead a HubSpot
   if (result.isQualified) {
     ctx.waitUntil(notifyOwner(env, db, whatsapp, lead.id, from, result));
+    const yaEstaba = lead.stage === "calificado" || lead.stage === "cotizado";
+    if (!yaEstaba) {
+      ctx.waitUntil(notificarCotizador(env, lead, from, result));
+    }
   }
   ctx.waitUntil(mirrorToHubSpot(env, db, lead.id));
 
   return twiml();
+}
+
+/* ------------------------------------------------------------------ */
+/*  NOTIFICAR AL COTIZADOR (propuesta formal cuando el lead califica)  */
+/* ------------------------------------------------------------------ */
+// Mapea el tipo de proyecto libre a las claves que entiende el cotizador.
+function mapTipoMueble(projectType?: string | null): string {
+  const t = (projectType ?? "").toLowerCase();
+  if (t.includes("cocina")) return "cocina";
+  if (t.includes("clos") || t.includes("vestier")) return "closet";
+  if (t.includes("baño") || t.includes("bano")) return "bano";
+  if (t.includes("entreten") || t.includes("tv")) return "entretenimiento";
+  if (t.includes("estudio") || t.includes("escritorio") || t.includes("office")) return "estudio";
+  if (t.includes("puerta")) return "puerta";
+  if (t.includes("lavadero")) return "lavadero";
+  if (t.includes("alacena") || t.includes("alcena") || t.includes("despensa")) return "alacena";
+  return "otro";
+}
+
+async function notificarCotizador(
+  env: Env,
+  lead: { id: string; name: string | null; phone: string; city: string | null; projectType: string | null; budget: number },
+  from: string,
+  result: { capturedFields?: any }
+): Promise<void> {
+  if (!env.COTIZADOR_URL || !env.COTIZADOR_SECRET) return;
+  const cf = result.capturedFields ?? {};
+  const budget = cf.budget ?? lead.budget;
+  const payload = {
+    nombre: cf.name ?? lead.name ?? "Cliente",
+    telefono: from.replace(/[^0-9]/g, ""),
+    zona: cf.city ?? lead.city ?? "Fusagasugá",
+    tiposMueble: [mapTipoMueble(cf.projectType ?? lead.projectType)],
+    descripcion: cf.projectType ?? lead.projectType ?? undefined,
+    presupuestoCliente: budget ? `$${budget.toLocaleString("es-CO")}` : undefined,
+    fuenteLead: "whatsapp-agente" as const,
+    leadId: lead.id,
+  };
+  try {
+    await fetch(`${env.COTIZADOR_URL}/notificar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Secret": env.COTIZADOR_SECRET },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    /* silencioso — nunca rompe el flujo del webhook */
+  }
 }
 
 /* ------------------------------------------------------------------ */

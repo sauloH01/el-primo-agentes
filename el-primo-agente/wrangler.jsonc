@@ -7,6 +7,7 @@
 //   wrangler secret put WHATSAPP_AUTH_TOKEN
 //   wrangler secret put ADMIN_API_TOKEN
 //   wrangler secret put HUBSPOT_ACCESS_TOKEN   (mismo token del elprimo-lead-worker)
+//   wrangler secret put COTIZADOR_SECRET       (la MISMA clave del el-primo-cotizador)
 {
   "name": "el-primo-agente",
   "main": "src/index.ts",
@@ -28,7 +29,9 @@
     "AGENT_ID": "el-primo-agente",
     // HubSpot (espejo de leads). Mismos valores que elprimo-lead-worker.
     "HUBSPOT_PIPELINE_ID": "default",
-    "HUBSPOT_DEALSTAGE_ID": "1374171315"
+    "HUBSPOT_DEALSTAGE_ID": "1374171315",
+    // Cotizador (propuesta formal). Se llena tras desplegar el-primo-cotizador.
+    "COTIZADOR_URL": "https://el-primo-cotizador.saulohs16.workers.dev"
   },
 
   // Base de datos D1 (fuente única de verdad del CRM).

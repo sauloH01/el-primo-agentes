@@ -1,0 +1,8 @@
+# Copia como .dev.vars (ya en .gitignore) y pon valores reales.
+# En producción se suben con:  wrangler secret put NOMBRE
+
+OPENAI_API_KEY=sk-proj-...
+RESEND_API_KEY=re_...
+
+# La MISMA clave que configures en el cotizador (para que pueda llamar /generar).
+RENDER_SECRET=la-misma-del-cotizador

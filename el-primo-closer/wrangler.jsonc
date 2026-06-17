@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  "name": "el-primo-closer",
+  "main": "src/index.ts",
+
+  "compatibility_date": "2026-05-25",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "account_id": "0fb22483300c6f8b8d6e8644424b396e",
+
+  "durable_objects": {
+    "bindings": [{ "name": "Conversation", "class_name": "Conversation" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Conversation"] }],
+
+  "vars": {
+    "OPENAI_MODEL": "gpt-4o-mini",
+    "OWNER_EMAIL": "saulohs16@gmail.com",
+    "FROM_EMAIL": "EL PRIMO <onboarding@resend.dev>",
+    // WhatsApp de Audenar (solo dígitos) — recibe los avisos de cierre/transferencia.
+    "AUDENAR_WHATSAPP": "573223306682"
+  }
+
+  // SECRETS (wrangler secret put):
+  //   TWILIO_ACCOUNT_SID    → Account SID de Twilio
+  //   TWILIO_AUTH_TOKEN     → Auth Token de Twilio
+  //   TWILIO_WHATSAPP_FROM  → "whatsapp:+14155238886" (sandbox) o tu número real
+  //   OPENAI_API_KEY        → misma llave del cotizador
+  //   RESEND_API_KEY        → misma llave del cotizador
+  //   CLOSER_SECRET         → la MISMA que en el cotizador
+}

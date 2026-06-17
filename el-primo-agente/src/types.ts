@@ -70,4 +70,7 @@ export interface Env {
   HUBSPOT_ACCESS_TOKEN: string;
   HUBSPOT_PIPELINE_ID: string;
   HUBSPOT_DEALSTAGE_ID: string;
+  // Cotizador (propuesta formal). Si COTIZADOR_URL está vacío, no se notifica.
+  COTIZADOR_URL?: string;
+  COTIZADOR_SECRET?: string;
 }

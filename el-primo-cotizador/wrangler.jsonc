@@ -1,0 +1,41 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  // URL pública: https://el-primo-cotizador.<tu-usuario>.workers.dev
+  "name": "el-primo-cotizador",
+  "main": "src/index.ts",
+
+  "compatibility_date": "2026-05-25",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Pega tu Account ID de Cloudflare (el mismo del el-primo-agente).
+  "account_id": "0fb22483300c6f8b8d6e8644424b396e",
+
+  // Durable Object: donde "vive" el cotizador y guarda el historial de leads.
+  "durable_objects": {
+    "bindings": [{ "name": "Cotizador", "class_name": "Cotizador" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Cotizador"] }],
+
+  // Variables públicas (NO secretas).
+  "vars": {
+    "OPENAI_MODEL": "gpt-4o-mini",
+    // A qué correo le llegan las cotizaciones para revisar (Audenar / Saulo).
+    "OWNER_EMAIL": "saulohs16@gmail.com",
+    // Desde qué correo se envían. onboarding@resend.dev solo envía a TU correo
+    // de la cuenta Resend. Con dominio verificado, usar "cotizaciones@elprimo.com".
+    "FROM_EMAIL": "EL PRIMO <onboarding@resend.dev>",
+    // WhatsApp de Audenar (solo dígitos, con código país).
+    "AUDENAR_WHATSAPP": "573223306682",
+    // URLs de los agentes hermanos (se llenan tras desplegarlos).
+    "CLOSER_URL": "https://el-primo-closer.saulohs16.workers.dev",
+    "RENDER_URL": "https://el-primo-render.saulohs16.workers.dev"
+  }
+
+  // SECRETS (wrangler secret put):
+  //   OPENAI_API_KEY    → llave de OpenAI (sk-proj-...)
+  //   RESEND_API_KEY    → llave de Resend (re_...)
+  //   COTIZADOR_SECRET  → clave para validar que solo el calificador llame /notificar
+  //   CLOSER_SECRET     → la MISMA del el-primo-closer
+  //   RENDER_SECRET     → la MISMA del el-primo-render
+}

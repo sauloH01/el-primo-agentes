@@ -1,0 +1,12 @@
+# Copia este archivo como .dev.vars (ya está en .gitignore) y pon los valores reales.
+# En producción estos secretos se suben con:  wrangler secret put NOMBRE
+
+OPENAI_API_KEY=sk-proj-...
+RESEND_API_KEY=re_...
+
+# Clave para que SOLO el calificador (el-primo-agente) pueda llamar a /notificar.
+COTIZADOR_SECRET=inventa-una-clave-larga
+
+# Las MISMAS claves que configures en los agentes hermanos.
+CLOSER_SECRET=la-misma-del-closer
+RENDER_SECRET=la-misma-del-render
