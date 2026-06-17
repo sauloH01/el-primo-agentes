@@ -2,14 +2,16 @@
 // Genera y envía una cotización formal por WhatsApp a un lead calificado.
 // Se llama desde el dashboard (botón "Enviar cotización") o potencialmente de forma automática.
 
-import type { Env, Lead, Tier } from "../types";
-import { KNOWLEDGE } from "../knowledge";
+import type { Env, Lead } from "../types";
+import { buildKnowledge } from "../knowledge";
 
 /** Genera el mensaje de cotización formal usando GPT-4o. */
 export async function generateQuoteMessage(lead: Lead, env: Env): Promise<string> {
   const tiersText = lead.tiers
     .map((t) => `• ${t.tier}: $${t.price.toLocaleString("es-CO")} COP`)
     .join("\n");
+
+  const knowledge = buildKnowledge();
 
   const prompt = `Eres el agente de ventas de EL PRIMO Carpintería. Redacta un mensaje de WhatsApp profesional y cálido para enviar una cotización al cliente.
 
@@ -23,7 +25,7 @@ TIERS ESTIMADOS:
 ${tiersText || "• Cotización personalizada: a definir en visita técnica"}
 
 CONOCIMIENTO DEL NEGOCIO:
-${KNOWLEDGE.substring(0, 1200)}
+${knowledge.substring(0, 1200)}
 
 INSTRUCCIONES:
 - Saluda al cliente por su nombre si está disponible
