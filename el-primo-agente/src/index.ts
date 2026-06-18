@@ -67,6 +67,14 @@ export default {
         } catch (err) {
           console.error("[Cron/Curador] error en ciclo de curación:", err);
         }
+        // Retención R2: borrar artefactos de borradores no enviados >30 días
+        if (env.ARTIFACTS) {
+          try {
+            await limpiarArtefactosViejos(env);
+          } catch (err) {
+            console.error("[Cron/R2] error en retención de artefactos:", err);
+          }
+        }
       })()
     );
   },
@@ -426,6 +434,31 @@ async function notifyOwner(
 }
 
 /* ------------------------------------------------------------------ */
+/*  HELPERS DE COTIZACIÓN                                             */
+/* ------------------------------------------------------------------ */
+
+function buildCotizadorPayload(lead: { name: string | null; phone: string; city: string | null; budget: number; projectType: string | null }, params: Record<string, unknown> = {}) {
+  return {
+    nombre: (params.nombre as string) ?? lead.name ?? "Cliente",
+    telefono: lead.phone.replace(/\D/g, ""),
+    zona: (params.zona as string) ?? lead.city ?? "Fusagasugá",
+    tiposMueble: Array.isArray(params.tiposMueble) && (params.tiposMueble as string[]).length
+      ? params.tiposMueble
+      : [mapTipoMueble(lead.projectType)],
+    metros:         params.metros         ?? undefined,
+    configuracion:  params.configuracion  ?? undefined,
+    material:       params.material       ?? undefined,
+    meson:          params.meson          ?? undefined,
+    ledIntegrado:   params.ledIntegrado   ?? undefined,
+    colorPreferido: params.colorPreferido ?? undefined,
+    descripcion:    (params.descripcion as string) ?? lead.projectType ?? undefined,
+    presupuestoCliente: lead.budget ? `$${lead.budget.toLocaleString("es-CO")}` : undefined,
+    fuenteLead: "whatsapp-agente",
+    leadId: (params.leadId as string) ?? "",
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /*  API ADMIN (dashboard)                                              */
 /* ------------------------------------------------------------------ */
 async function handleAdmin(request: Request, env: Env, url: URL): Promise<Response> {
@@ -509,6 +542,181 @@ async function handleAdmin(request: Request, env: Env, url: URL): Promise<Respon
     return json({ ok: true });
   }
 
+  // GET /api/admin/leads/:id/quote  — borrador actual (o 404 si no hay)
+  if (request.method === "GET" && sub[0] === "leads" && sub[2] === "quote" && !sub[3]) {
+    const quote = await db.getQuoteByLeadId(sub[1]);
+    if (!quote) return json({ error: "not_found" }, 404);
+    return json(quote);
+  }
+
+  // PUT /api/admin/leads/:id/quote  — guarda params/prose y recalcula si cambian los params
+  // Body: { params?: QuoteParams, prose?: ContenidoIA }
+  if (request.method === "PUT" && sub[0] === "leads" && sub[2] === "quote" && !sub[3]) {
+    const lead = await db.getLeadById(sub[1]);
+    if (!lead) return json({ error: "not_found" }, 404);
+    if (!env.COTIZADOR_URL || !env.COTIZADOR_SECRET) {
+      return json({ error: "cotizador_not_configured" }, 500);
+    }
+
+    const body = await request.json().catch(() => ({})) as {
+      params?: Record<string, unknown>;
+      prose?: Record<string, unknown>;
+    };
+
+    let updatedPricing: Record<string, unknown> | undefined;
+    let updatedProse: Record<string, unknown> | undefined;
+
+    // Si vienen params nuevos → recalcular vía cotizador /preview
+    if (body.params) {
+      const payload = buildCotizadorPayload(lead, { ...body.params, leadId: lead.id });
+      const res = await fetch(`${env.COTIZADOR_URL}/preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Secret": env.COTIZADOR_SECRET },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(12000),
+      });
+      if (!res.ok) return json({ error: "cotizador_error", status: res.status }, 502);
+      const result = await res.json() as { ok: boolean; pricing: unknown; contenido: unknown };
+      if (!result.ok) return json({ error: "cotizador_error" }, 502);
+      updatedPricing = result.pricing as Record<string, unknown>;
+      updatedProse   = result.contenido as Record<string, unknown>; // prosa recién generada
+    }
+
+    // Si viene prose editada explícitamente → sobrescribe la generada por cotizador
+    if (body.prose) updatedProse = body.prose;
+
+    const quote = await db.upsertQuote(sub[1], {
+      params:  body.params  as Record<string, unknown> | undefined,
+      pricing: updatedPricing,
+      prose:   updatedProse,
+    });
+    return json(quote);
+  }
+
+  // POST /api/admin/leads/:id/quote/render  — genera render+plano, guarda en R2
+  if (request.method === "POST" && sub[0] === "leads" && sub[2] === "quote" && sub[3] === "render") {
+    const lead = await db.getLeadById(sub[1]);
+    if (!lead) return json({ error: "not_found" }, 404);
+    if (!env.RENDER_URL || !env.RENDER_SECRET) {
+      return json({ error: "render_not_configured" }, 500);
+    }
+    if (!env.ARTIFACTS) {
+      return json({ error: "r2_not_configured" }, 500);
+    }
+
+    const quote = await db.getQuoteByLeadId(sub[1]);
+    const params = (quote?.params ?? {}) as Record<string, unknown>;
+
+    const renderPayload = {
+      nombre: lead.name ?? "Cliente",
+      tipoMueble: mapTipoMueble(lead.projectType),
+      metros:          params.metros          ?? undefined,
+      configuracion:   params.configuracion   ?? undefined,
+      colorPreferido:  params.colorPreferido  ?? undefined,
+      ledIntegrado:    params.ledIntegrado    ?? undefined,
+      meson:           params.meson           ?? undefined,
+      descripcion:     params.descripcion     ?? lead.projectType ?? undefined,
+    };
+
+    const renderRes = await fetch(`${env.RENDER_URL}/preview`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Secret": env.RENDER_SECRET },
+      body: JSON.stringify(renderPayload),
+      signal: AbortSignal.timeout(45000),
+    });
+    if (!renderRes.ok) return json({ error: "render_error", status: renderRes.status }, 502);
+    const renderData = await renderRes.json() as { ok: boolean; renderPng?: string | null; planoSvg: string; renderError?: string };
+
+    const leadId = sub[1];
+    const renderKey = `renders/${leadId}/render.png`;
+    const planKey   = `renders/${leadId}/plan.svg`;
+
+    // Subir SVG siempre (plano no tiene costo)
+    await env.ARTIFACTS.put(planKey, renderData.planoSvg, {
+      httpMetadata: { contentType: "image/svg+xml" },
+    });
+
+    // Subir PNG solo si el render tuvo éxito
+    if (renderData.renderPng) {
+      const pngBytes = Uint8Array.from(atob(renderData.renderPng), c => c.charCodeAt(0));
+      await env.ARTIFACTS.put(renderKey, pngBytes, {
+        httpMetadata: { contentType: "image/png" },
+      });
+    }
+
+    const updatedQuote = await db.upsertQuote(leadId, {
+      renderKey: renderData.renderPng ? renderKey : undefined,
+      planKey,
+    });
+
+    await db.logEvent("render_generated", leadId, {
+      renderKey: renderData.renderPng ? renderKey : null,
+      planKey,
+      renderError: renderData.renderError ?? null,
+    });
+
+    return json({ ok: true, quote: updatedQuote, renderError: renderData.renderError ?? null });
+  }
+
+  // GET /api/admin/leads/:id/quote/asset?type=docx|render|plan — stream autenticado desde R2
+  if (request.method === "GET" && sub[0] === "leads" && sub[2] === "quote" && sub[3] === "asset") {
+    const type = url.searchParams.get("type") ?? "docx";
+
+    // render y plan: servir desde R2
+    if (type === "render" || type === "plan") {
+      if (!env.ARTIFACTS) return json({ error: "r2_not_configured" }, 500);
+      const leadId = sub[1];
+      const quote = await db.getQuoteByLeadId(leadId);
+      const key = type === "render" ? quote?.renderKey : quote?.planKey;
+      if (!key) return json({ error: "not_generated_yet" }, 404);
+      const obj = await env.ARTIFACTS.get(key);
+      if (!obj) return json({ error: "artifact_not_found" }, 404);
+      const contentType = type === "render" ? "image/png" : "image/svg+xml";
+      return new Response(obj.body, { headers: { "Content-Type": contentType, "Cache-Control": "no-store" } });
+    }
+
+    if (type !== "docx") return json({ error: "type_invalid" }, 400);
+
+    const lead = await db.getLeadById(sub[1]);
+    if (!lead) return json({ error: "not_found" }, 404);
+    if (!env.COTIZADOR_URL || !env.COTIZADOR_SECRET) {
+      return json({ error: "cotizador_not_configured" }, 500);
+    }
+
+    const quote = await db.getQuoteByLeadId(sub[1]);
+    const params = (quote?.params ?? {}) as Record<string, unknown>;
+    const prose  = quote?.prose ?? null;
+
+    const cotLead = buildCotizadorPayload(lead, { ...params, leadId: lead.id });
+
+    let cotProse = prose;
+    if (!cotProse) {
+      // Si no hay prosa guardada, generamos con /preview primero
+      const previewRes = await fetch(`${env.COTIZADOR_URL}/preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Secret": env.COTIZADOR_SECRET },
+        body: JSON.stringify(cotLead),
+        signal: AbortSignal.timeout(12000),
+      });
+      if (previewRes.ok) {
+        const pr = await previewRes.json() as { ok: boolean; contenido: unknown };
+        if (pr.ok) cotProse = pr.contenido as Record<string, unknown>;
+      }
+    }
+
+    const docxRes = await fetch(`${env.COTIZADOR_URL}/docx`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Secret": env.COTIZADOR_SECRET },
+      body: JSON.stringify({ lead: cotLead, contenido: cotProse }),
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!docxRes.ok) return json({ error: "docx_error", status: docxRes.status }, 502);
+    const docxResult = await docxRes.json() as { ok: boolean; docx: string };
+    if (!docxResult.ok) return json({ error: "docx_error" }, 502);
+
+    return json({ docx: docxResult.docx }); // base64 DOCX
+  }
+
   // GET /api/admin/leads/:id/draft-quote
   // Genera el borrador de cotización con IA pero NO lo envía.
   if (request.method === "GET" && sub[0] === "leads" && sub[2] === "draft-quote") {
@@ -557,6 +765,32 @@ async function handleAdmin(request: Request, env: Env, url: URL): Promise<Respon
   }
 
   return json({ error: "not_found" }, 404);
+}
+
+/* ------------------------------------------------------------------ */
+/*  R2 RETENCIÓN — borra artefactos de borradores > 30 días           */
+/* ------------------------------------------------------------------ */
+async function limpiarArtefactosViejos(env: Env): Promise<void> {
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const result = await env.DB.prepare(
+    `SELECT id, render_key, plan_key FROM quotes
+     WHERE status = 'borrador'
+       AND (render_key IS NOT NULL OR plan_key IS NOT NULL)
+       AND updated_at < ?`
+  ).bind(cutoff).all<{ id: string; render_key: string | null; plan_key: string | null }>();
+
+  if (!result.results?.length) return;
+
+  for (const row of result.results) {
+    const deletes: Promise<void>[] = [];
+    if (row.render_key) deletes.push(env.ARTIFACTS!.delete(row.render_key));
+    if (row.plan_key)   deletes.push(env.ARTIFACTS!.delete(row.plan_key));
+    await Promise.all(deletes);
+    await env.DB.prepare(
+      `UPDATE quotes SET render_key = NULL, plan_key = NULL, updated_at = ? WHERE id = ?`
+    ).bind(new Date().toISOString(), row.id).run();
+    console.log(`[R2/Retención] artefactos borrados para borrador ${row.id}`);
+  }
 }
 
 /* ------------------------------------------------------------------ */

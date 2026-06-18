@@ -2,12 +2,12 @@
 // Agente de WhatsApp (Twilio) + API admin para el dashboard.
 //
 // IMPORTANTE — los SECRETOS no van aquí. Se cargan con:
-//   wrangler secret put OPENAI_API_KEY
-//   wrangler secret put WHATSAPP_ACCOUNT_SID
-//   wrangler secret put WHATSAPP_AUTH_TOKEN
-//   wrangler secret put ADMIN_API_TOKEN
-//   wrangler secret put HUBSPOT_ACCESS_TOKEN   (mismo token del elprimo-lead-worker)
-//   wrangler secret put COTIZADOR_SECRET       (la MISMA clave del el-primo-cotizador)
+//   npx wrangler secret put OPENAI_API_KEY
+//   npx wrangler secret put WHATSAPP_ACCOUNT_SID
+//   npx wrangler secret put WHATSAPP_AUTH_TOKEN
+//   npx wrangler secret put ADMIN_API_TOKEN
+//   npx wrangler secret put HUBSPOT_ACCESS_TOKEN
+//   npx wrangler secret put COTIZADOR_SECRET
 {
   "name": "el-primo-agente",
   "main": "src/index.ts",
@@ -15,28 +15,20 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
 
-  // Pega aquí tu Account ID de Cloudflare (Dashboard → Workers → Overview).
   "account_id": "0fb22483300c6f8b8d6e8644424b396e",
 
   // Variables NO secretas (visibles). Los secretos se cargan aparte.
   "vars": {
-    // Número de WhatsApp del agente en Twilio, formato E.164 con whatsapp:
-    // Sandbox de Twilio: "+14155238886"
     "WHATSAPP_SENDER_NUMBER": "+14155238886",
-    // WhatsApp personal de Audenar (recibe el aviso de lead calificado), E.164.
     "AUDENAR_PHONE": "+573223306682",
-    // Id de este agente dentro de la base D1 (debe existir en la tabla agents).
     "AGENT_ID": "el-primo-agente",
-    // HubSpot (espejo de leads). Mismos valores que elprimo-lead-worker.
     "HUBSPOT_PIPELINE_ID": "default",
     "HUBSPOT_DEALSTAGE_ID": "1374171315",
-    // Cotizador (propuesta formal). Se llena tras desplegar el-primo-cotizador.
-    "COTIZADOR_URL": "https://el-primo-cotizador.saulohs16.workers.dev"
+    "COTIZADOR_URL": "https://el-primo-cotizador.saulohs16.workers.dev",
+    "RENDER_URL": "https://el-primo-render.saulohs16.workers.dev"
   },
 
   // Base de datos D1 (fuente única de verdad del CRM).
-  // Crea la base con:  wrangler d1 create elprimo-crm
-  // y pega el database_id que te devuelve.
   "d1_databases": [
     {
       "binding": "DB",
@@ -44,6 +36,32 @@
       "database_id": "7b67cd56-11ec-4262-839c-9f6bd9e25aef"
     }
   ],
+
+  // KV Namespace para cache caliente de few-shots del curador.
+  // Crea el namespace con:
+  //   npx wrangler kv namespace create CURATOR_KV
+  // Pega el id que devuelva en "id" abajo.
+  "kv_namespaces": [
+    {
+      "binding": "CURATOR_KV",
+      "id": "42e006a5db974f508fe6ce0141e48810"
+    }
+  ],
+
+  // R2 bucket para artefactos (PNG render, SVG plano, DOCX cotización).
+  // Crear el bucket con: npx wrangler r2 bucket create elprimo-artifacts
+  // IMPORTANTE: habilitar R2 desde el Dashboard de Cloudflare antes de crear el bucket.
+  "r2_buckets": [
+    {
+      "binding": "ARTIFACTS",
+      "bucket_name": "elprimo-artifacts"
+    }
+  ],
+
+  // Cron Trigger — curación autónoma cada 4 horas.
+  "triggers": {
+    "crons": ["0 */4 * * *"]
+  },
 
   "observability": {
     "enabled": true

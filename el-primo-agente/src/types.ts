@@ -62,6 +62,34 @@ export interface AgentReply {
   capturedFields: CapturedFields;
 }
 
+/** Parámetros editables de una cotización (lo que Audenar puede ajustar en el panel). */
+export interface QuoteParams {
+  tiposMueble?: string[];
+  metros?: number;
+  material?: string;
+  zona?: string;
+  meson?: string;
+  ledIntegrado?: boolean;
+  colorPreferido?: string;
+  configuracion?: string;
+  descripcion?: string;
+}
+
+/** Borrador/cotización guardada en D1 para un lead. */
+export interface QuoteRecord {
+  id: string;
+  leadId: string;
+  status: "borrador" | "enviada";
+  params: QuoteParams | null;
+  pricing: Record<string, unknown> | null; // ResultadoCotizacion del cotizador
+  prose: Record<string, unknown> | null;   // ContenidoIA editable
+  renderKey: string | null;
+  planKey: string | null;
+  docxKey: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Variables de entorno del Worker. */
 export interface Env {
   DB: D1Database;
@@ -80,6 +108,9 @@ export interface Env {
   HUBSPOT_DEALSTAGE_ID: string;
   COTIZADOR_URL?: string;
   COTIZADOR_SECRET?: string;
+  RENDER_URL?: string;
+  RENDER_SECRET?: string;
+  ARTIFACTS?: R2Bucket; // bucket elprimo-artifacts (PNG, SVG, DOCX)
 }
 
 // ─── Tipos del sistema de curación autónoma ───────────────────────────────
