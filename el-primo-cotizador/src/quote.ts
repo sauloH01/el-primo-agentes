@@ -103,7 +103,7 @@ export function construirHtml(lead: Lead, cot: ResultadoCotizacion, c: Contenido
   const filaDescuento =
     cot.descuentoCombo > 0
       ? `<tr>
-          <td style="padding:12px 0;border-bottom:1px solid ${LGRAY};font-family:Arial;font-size:13px;color:${GREEN};">🎁 Descuento proyecto combinado (5%)</td>
+          <td style="padding:12px 0;border-bottom:1px solid ${LGRAY};font-family:Arial;font-size:13px;color:${GREEN};">Descuento proyecto combinado (5%)</td>
           <td style="padding:12px 0;border-bottom:1px solid ${LGRAY};text-align:right;font-size:14px;font-weight:bold;color:${GREEN};font-family:Arial;">- ${formatMillones(cot.descuentoCombo)}</td>
         </tr>`
       : "";
@@ -111,7 +111,7 @@ export function construirHtml(lead: Lead, cot: ResultadoCotizacion, c: Contenido
   const filaViaticos =
     cot.viaticos > 0
       ? `<tr>
-          <td style="padding:12px 0;border-bottom:1px solid ${LGRAY};font-family:Arial;font-size:13px;color:${GRAY};">🚗 Viáticos ${esc(lead.zona)} (descontable si contrata)</td>
+          <td style="padding:12px 0;border-bottom:1px solid ${LGRAY};font-family:Arial;font-size:13px;color:${GRAY};">Viáticos ${esc(lead.zona)} (descontable si contrata)</td>
           <td style="padding:12px 0;border-bottom:1px solid ${LGRAY};text-align:right;font-size:14px;color:${GRAY};font-family:Arial;">${formatCOP(cot.viaticos)}</td>
         </tr>`
       : "";
@@ -139,7 +139,7 @@ export function construirHtml(lead: Lead, cot: ResultadoCotizacion, c: Contenido
 
   <!-- ░░░ PANEL INTERNO — elimina este bloque antes de reenviar al cliente ░░░ -->
   <div style="background:#FFF9E6;border:1px solid ${GOLD};border-radius:6px;padding:18px 20px;margin-bottom:20px;">
-    <p style="margin:0 0 10px;font-size:13px;font-weight:bold;color:#7A5C2E;font-family:Arial;">📋 NUEVO LEAD — solo para Audenar (EL PRIMO)</p>
+    <p style="margin:0 0 10px;font-size:13px;font-weight:bold;color:#7A5C2E;font-family:Arial;">NUEVO LEAD — solo para Audenar (EL PRIMO)</p>
     <table style="width:100%;border-collapse:collapse;font-size:13px;font-family:Arial;">
       <tr><td style="padding:3px 0;width:120px;color:#92400E;">Nombre</td><td style="color:#1C1917;"><strong>${esc(lead.nombre)}</strong></td></tr>
       <tr><td style="padding:3px 0;color:#92400E;">Teléfono</td><td style="color:#1C1917;">${esc(lead.telefono)}</td></tr>
@@ -152,8 +152,8 @@ export function construirHtml(lead: Lead, cot: ResultadoCotizacion, c: Contenido
       <tr><td style="padding:3px 0;color:#92400E;">Fuente</td><td style="color:#1C1917;">${esc(lead.fuenteLead || "—")}</td></tr>
     </table>
     <div style="margin-top:12px;padding-top:12px;border-top:1px dashed ${GOLD};">
-      <strong style="color:${BROWN};font-size:14px;">💰 Rango cotización: ${formatMillones(cot.totalMin)} – ${formatMillones(cot.totalMax)}</strong><br/>
-      <span style="font-size:13px;color:${GRAY};">⏱️ Entrega estimada: ${cot.diasEntrega} días hábiles</span>
+      <strong style="color:${BROWN};font-size:14px;">Rango de cotización: ${formatMillones(cot.totalMin)} – ${formatMillones(cot.totalMax)}</strong><br/>
+      <span style="font-size:13px;color:${GRAY};">Entrega estimada: ${cot.diasEntrega} días hábiles</span>
     </div>
     ${notasHtml}
   </div>

@@ -123,8 +123,8 @@ export function calcularCotizacion(lead: Lead): ResultadoCotizacion {
           descripcion += " + iluminación LED";
         }
 
-        notas.push("✅ Tablero RH obligatorio en cocina (estándar EL PRIMO).");
-        notas.push("✅ Cantos termosellados a máquina industrial.");
+        notas.push("Tablero RH obligatorio en cocina (estándar EL PRIMO).");
+        notas.push("Cantos termosellados a máquina industrial.");
         break;
       }
       case "closet": {
@@ -138,7 +138,7 @@ export function calcularCotizacion(lead: Lead): ResultadoCotizacion {
         itemMin = PRECIOS.bano.base.min;
         itemMax = PRECIOS.bano.base.max;
         descripcion = "Mueble de baño (vanitorio)";
-        notas.push("✅ Tablero RH obligatorio en baño (estándar EL PRIMO).");
+        notas.push("Tablero RH obligatorio en baño (estándar EL PRIMO).");
         break;
       }
       case "entretenimiento": {
@@ -191,13 +191,13 @@ export function calcularCotizacion(lead: Lead): ResultadoCotizacion {
   let descuentoCombo = 0;
   if (tipos.length > 1) {
     descuentoCombo = redondear(subtotalMin * 0.05);
-    notas.push("💡 Descuento combo por proyecto múltiple (5%).");
+    notas.push("Descuento combo por proyecto múltiple (5%).");
   }
 
   // Viáticos
   const viaticos = incluyeDesplazamiento ? VIATICOS_FUERA_FUSA : 0;
   if (incluyeDesplazamiento) {
-    notas.push(`🚗 Desplazamiento a ${lead.zona}: ${formatCOP(viaticos)} (se descuenta si contrata).`);
+    notas.push(`Desplazamiento a ${lead.zona}: ${formatCOP(viaticos)} (se descuenta si contrata).`);
   }
 
   // Tiempo de entrega (el mayor de los tipos solicitados)
@@ -220,7 +220,7 @@ export function calcularCotizacion(lead: Lead): ResultadoCotizacion {
   // Aviso de ticket mínimo (no bloquea: Audenar decide al revisar)
   if (totalMax < TICKET_MINIMO) {
     notas.push(
-      `⚠️ El estimado queda por debajo del ticket mínimo (${formatCOP(TICKET_MINIMO)}). Confirma alcance antes de enviar.`
+      `El estimado queda por debajo del ticket mínimo (${formatCOP(TICKET_MINIMO)}). Confirma alcance antes de enviar.`
     );
   }
 

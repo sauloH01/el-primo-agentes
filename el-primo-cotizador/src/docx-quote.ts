@@ -61,7 +61,7 @@ function entregableItem(text: string): Paragraph {
     spacing: { after: 160 },
     indent: { left: convertMillimetersToTwip(5) },
     children: [
-      new TextRun({ text: "✓  ", color: WOOD, size: 24, bold: true, font: "Arial" }),
+      new TextRun({ text: "–  ", color: WOOD, size: 24, bold: true, font: "Arial" }),
       new TextRun({ text, color: GRAY, size: 24, font: "Arial" }),
     ],
   });
@@ -216,7 +216,7 @@ export async function generarDocx(lead: Lead, cot: ResultadoCotizacion, c: Conte
           new Paragraph({
             spacing: { after: 0 },
             children: [
-              new TextRun({ text: `⏳  Esta propuesta está reservada para ti hasta el `, color: GRAY, size: 20, font: "Arial" }),
+              new TextRun({ text: `Esta propuesta tiene validez hasta el `, color: GRAY, size: 20, font: "Arial" }),
               new TextRun({ text: validaHasta, color: WOOD, size: 20, bold: true, font: "Arial" }),
               new TextRun({ text: ". Después, precios y disponibilidad de agenda pueden cambiar.", color: GRAY, size: 20, font: "Arial" }),
             ],

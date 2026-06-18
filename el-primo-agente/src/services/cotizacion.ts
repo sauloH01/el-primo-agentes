@@ -13,29 +13,35 @@ export async function generateQuoteMessage(lead: Lead, env: Env): Promise<string
 
   const knowledge = buildKnowledge();
 
-  const prompt = `Eres el agente de ventas de EL PRIMO Carpintería. Redacta un mensaje de WhatsApp profesional y cálido para enviar una cotización al cliente.
+  const clientName = (lead.name ?? "").trim();
+  const saludoNombre = clientName ? `${clientName.split(" ")[0]}` : "hola";
+
+  const prompt = `Eres Audenar Salazar, dueño de EL PRIMO Carpintería (Fusagasugá). Redacta un mensaje de WhatsApp para presentar una cotización al cliente.
 
 DATOS DEL CLIENTE:
-- Nombre: ${lead.name ?? "Cliente"}
+- Nombre para saludar: ${saludoNombre}
 - Ciudad/zona: ${lead.city ?? "por confirmar"}
-- Tipo de proyecto: ${lead.projectType ?? "muebles"}
+- Tipo de proyecto: ${lead.projectType ?? "mobiliario"}
 - Presupuesto informado: ${lead.budget ? `$${lead.budget.toLocaleString("es-CO")} COP` : "por definir"}
 
-TIERS ESTIMADOS:
+TIERS CALCULADOS (estos son los valores reales — úsalos tal cual):
 ${tiersText || "• Cotización personalizada: a definir en visita técnica"}
 
-CONOCIMIENTO DEL NEGOCIO:
-${knowledge.substring(0, 1200)}
+INSTRUCCIONES ESTRICTAS:
+- Saluda usando el nombre real: "${saludoNombre}". NUNCA escribas "[Nombre del Cliente]" ni ningún placeholder.
+- Presenta los tiers con sus precios EXACTOS tal como aparecen arriba. No los cambies.
+- Los precios ya están calculados para el presupuesto de ${lead.budget ? `$${lead.budget.toLocaleString("es-CO")}` : "este cliente"} — son coherentes.
+- Menciona que los valores son estimados y el precio exacto se confirma en la visita técnica gratuita.
+- Menciona que incluye instalación, diseño 3D y garantía escrita de 1 año.
+- Invita a agendar la visita técnica gratuita.
+- Tono: directo, profesional, cercano. Sin lenguaje corporativo. En español colombiano.
+- Formato WhatsApp: usa *negrita* para los precios y secciones clave. Máximo 200 palabras.
+- Firma como: *Audenar — EL PRIMO Carpintería*
+- NUNCA escribas "[Tu Nombre]", "[Nombre del Cliente]" ni ningún corchete o placeholder.
+- NO incluyas número de teléfono ni menciones que vas a contactar al cliente (él ya está en el chat).
 
-INSTRUCCIONES:
-- Saluda al cliente por su nombre si está disponible
-- Presenta los tiers de forma clara (básico/estándar/premium si aplica)
-- Menciona que incluye instalación y garantía
-- Invita a agendar la visita técnica gratuita
-- Tono: profesional pero cercano, en español colombiano
-- Formato WhatsApp: usa *negrita* para resaltar precios, emojis moderados
-- Máximo 250 palabras
-- NO incluyas el número de teléfono de la empresa (el cliente ya está en la conversación)`;
+CONOCIMIENTO DEL NEGOCIO:
+${knowledge.substring(0, 800)}`;
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",

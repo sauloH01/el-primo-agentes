@@ -10,6 +10,8 @@ import type {
   ConversationMessage,
   Direction,
   MediaType,
+  QuoteRecord,
+  QuoteParams,
 } from "../types";
 
 /** Normaliza un teléfono a E.164 colombiano (+57...). */
@@ -462,6 +464,87 @@ export class DB {
       active: Number(r.active) === 1,
       leadCount: Number(r.lead_count) || 0,
     }));
+  }
+
+  /* ─── Cotizaciones (Fase 2a) ──────────────────────────────────────── */
+
+  private rowToQuote(row: any): QuoteRecord {
+    return {
+      id:        row.id,
+      leadId:    row.lead_id,
+      status:    row.status as "borrador" | "enviada",
+      params:    row.params_json   ? JSON.parse(row.params_json)  : null,
+      pricing:   row.pricing_json  ? JSON.parse(row.pricing_json) : null,
+      prose:     row.prose_json    ? JSON.parse(row.prose_json)   : null,
+      renderKey: row.render_key    ?? null,
+      planKey:   row.plan_key      ?? null,
+      docxKey:   row.docx_key      ?? null,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  async getQuoteByLeadId(leadId: string): Promise<QuoteRecord | null> {
+    const row = await this.db
+      .prepare("SELECT * FROM quotes WHERE lead_id = ? ORDER BY created_at DESC LIMIT 1")
+      .bind(leadId)
+      .first();
+    return row ? this.rowToQuote(row) : null;
+  }
+
+  async upsertQuote(
+    leadId: string,
+    data: {
+      params?: QuoteParams;
+      pricing?: Record<string, unknown>;
+      prose?: Record<string, unknown>;
+      status?: "borrador" | "enviada";
+      renderKey?: string;
+      planKey?: string;
+      docxKey?: string;
+    }
+  ): Promise<QuoteRecord> {
+    const existing = await this.getQuoteByLeadId(leadId);
+    if (existing) {
+      const sets: string[] = [];
+      const vals: unknown[] = [];
+      if (data.params   !== undefined) { sets.push("params_json = ?");  vals.push(JSON.stringify(data.params));   }
+      if (data.pricing  !== undefined) { sets.push("pricing_json = ?"); vals.push(JSON.stringify(data.pricing));  }
+      if (data.prose    !== undefined) { sets.push("prose_json = ?");   vals.push(JSON.stringify(data.prose));    }
+      if (data.status   !== undefined) { sets.push("status = ?");       vals.push(data.status);                  }
+      if (data.renderKey !== undefined){ sets.push("render_key = ?");   vals.push(data.renderKey);               }
+      if (data.planKey  !== undefined) { sets.push("plan_key = ?");     vals.push(data.planKey);                 }
+      if (data.docxKey  !== undefined) { sets.push("docx_key = ?");     vals.push(data.docxKey);                 }
+      if (sets.length > 0) {
+        sets.push("updated_at = datetime('now')");
+        vals.push(existing.id);
+        await this.db.prepare(`UPDATE quotes SET ${sets.join(", ")} WHERE id = ?`).bind(...vals).run();
+      }
+      const updated = await this.db.prepare("SELECT * FROM quotes WHERE id = ?").bind(existing.id).first();
+      return this.rowToQuote(updated!);
+    }
+
+    const id = uuid();
+    await this.db
+      .prepare(
+        `INSERT INTO quotes (id, lead_id, status, params_json, pricing_json, prose_json, render_key, plan_key, docx_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        id,
+        leadId,
+        data.status ?? "borrador",
+        data.params  ? JSON.stringify(data.params)  : null,
+        data.pricing ? JSON.stringify(data.pricing) : null,
+        data.prose   ? JSON.stringify(data.prose)   : null,
+        data.renderKey ?? null,
+        data.planKey   ?? null,
+        data.docxKey   ?? null,
+      )
+      .run();
+
+    const created = await this.db.prepare("SELECT * FROM quotes WHERE id = ?").bind(id).first();
+    return this.rowToQuote(created!);
   }
 
   /* ─── Sistema de curación autónoma (traza + few-shots) ─────────────── */

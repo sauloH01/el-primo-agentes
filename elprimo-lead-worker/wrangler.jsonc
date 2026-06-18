@@ -6,6 +6,7 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "elprimo-lead-worker",
 	"main": "src/index.ts",
+	"account_id": "0fb22483300c6f8b8d6e8644424b396e",
 	"compatibility_date": "2026-06-13",
 	"observability": {
 		"enabled": true

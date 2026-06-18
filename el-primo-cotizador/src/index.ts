@@ -44,7 +44,7 @@ export class Cotizador extends Agent<Env, AgentState> {
     const url = new URL(req.url);
 
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) {
-      return new Response("ok — cotizador EL PRIMO vivo 🪵", { status: 200 });
+      return new Response("ok — cotizador EL PRIMO", { status: 200 });
     }
 
     // El calificador notifica un lead listo para cotizar (protegido con secret)
@@ -68,7 +68,62 @@ export class Cotizador extends Agent<Env, AgentState> {
       });
     }
 
+    // POST /preview  — precio + prosa SIN enviar correo (para el panel)
+    if (req.method === "POST" && url.pathname === "/preview") {
+      const secret = req.headers.get("X-Secret") ?? "";
+      if (this.env.COTIZADOR_SECRET && secret !== this.env.COTIZADOR_SECRET) {
+        return new Response("Unauthorized", { status: 403 });
+      }
+      return this.preview(req);
+    }
+
+    // POST /docx  — genera DOCX con prosa ya editada por Audenar
+    if (req.method === "POST" && url.pathname === "/docx") {
+      const secret = req.headers.get("X-Secret") ?? "";
+      if (this.env.COTIZADOR_SECRET && secret !== this.env.COTIZADOR_SECRET) {
+        return new Response("Unauthorized", { status: 403 });
+      }
+      return this.docxEndpoint(req);
+    }
+
     return new Response("Ruta no encontrada", { status: 404 });
+  }
+
+  /** Preview: calcula precio y genera prosa sin enviar nada. Para el panel. */
+  async preview(req: Request): Promise<Response> {
+    let lead: Lead;
+    try {
+      lead = (await req.json()) as Lead;
+    } catch {
+      return Response.json({ ok: false, error: "Datos del lead inválidos." }, { status: 400 });
+    }
+    if (!lead?.nombre || !lead?.telefono) {
+      return Response.json({ ok: false, error: "Faltan nombre o teléfono." }, { status: 400 });
+    }
+    if (!lead.tiposMueble?.length) lead.tiposMueble = ["otro"];
+
+    const pricing = calcular(lead);
+    const contenido = await generarContenido(lead, pricing, this.env.OPENAI_API_KEY, this.env.OPENAI_MODEL);
+    return Response.json({ ok: true, pricing, contenido });
+  }
+
+  /** Genera el DOCX con prosa personalizada (puede ser la que editó Audenar). */
+  async docxEndpoint(req: Request): Promise<Response> {
+    let body: { lead: Lead; contenido: import("./types").ContenidoIA };
+    try {
+      body = (await req.json()) as { lead: Lead; contenido: import("./types").ContenidoIA };
+    } catch {
+      return Response.json({ ok: false, error: "Body inválido." }, { status: 400 });
+    }
+    const { lead, contenido } = body;
+    if (!lead?.nombre || !contenido) {
+      return Response.json({ ok: false, error: "Faltan lead o contenido." }, { status: 400 });
+    }
+    if (!lead.tiposMueble?.length) lead.tiposMueble = ["otro"];
+
+    const pricing = calcular(lead);
+    const docxBuffer = await generarDocx(lead, pricing, contenido);
+    return Response.json({ ok: true, docx: docxBuffer.toString("base64") });
   }
 
   /** Recibe el lead, cotiza, genera con IA y envía el correo a Audenar. */
@@ -117,7 +172,7 @@ export class Cotizador extends Agent<Env, AgentState> {
         apiKey: this.env.RESEND_API_KEY,
         from: this.env.FROM_EMAIL,
         to: this.env.OWNER_EMAIL,
-        subject: `📋 Cotización EL PRIMO — ${lead.nombre} (${lead.zona}) · ${registro.rango}`,
+        subject: `Cotización EL PRIMO — ${lead.nombre} (${lead.zona}) · ${registro.rango}`,
         html,
         replyTo: lead.correo,
         attachments: [{ filename: nombreArchivo, content: docxBuffer.toString("base64") }],
