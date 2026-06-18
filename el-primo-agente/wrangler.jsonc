@@ -49,14 +49,16 @@
   ],
 
   // R2 bucket para artefactos (PNG render, SVG plano, DOCX cotización).
-  // Crear el bucket con: npx wrangler r2 bucket create elprimo-artifacts
-  // IMPORTANTE: habilitar R2 desde el Dashboard de Cloudflare antes de crear el bucket.
-  "r2_buckets": [
-    {
-      "binding": "ARTIFACTS",
-      "bucket_name": "elprimo-artifacts"
-    }
-  ],
+  // PENDIENTE: habilitar R2 desde https://dash.cloudflare.com → R2 Object Storage → Enable
+  // Luego: npx wrangler r2 bucket create elprimo-artifacts
+  // Luego: descomentar el bloque r2_buckets abajo y re-deployar
+  //
+  // "r2_buckets": [
+  //   {
+  //     "binding": "ARTIFACTS",
+  //     "bucket_name": "elprimo-artifacts"
+  //   }
+  // ],
 
   // Cron Trigger — curación autónoma cada 4 horas.
   "triggers": {
