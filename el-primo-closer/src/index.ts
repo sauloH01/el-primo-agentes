@@ -25,6 +25,7 @@ export type Env = {
   TWILIO_AUTH_TOKEN: string;
   TWILIO_WHATSAPP_FROM: string; // "whatsapp:+14155238886"
   CLOSER_SECRET: string;
+  AGENTE_URL?: string; // URL pública del agente (para push-back de eventos)
 };
 
 export { Conversation };
@@ -46,6 +47,11 @@ export default {
       await conv.fetch(new Request("https://do/reset", { method: "POST" }));
       return Response.json({ ok: true });
     }
+
+    if (req.method === "POST" && url.pathname === "/admin/pausar") return handleAdminAccion(req, env, "pausar");
+    if (req.method === "POST" && url.pathname === "/admin/reanudar") return handleAdminAccion(req, env, "reanudar");
+    if (req.method === "POST" && url.pathname === "/admin/toque-manual") return handleAdminAccion(req, env, "toque-manual");
+    if (req.method === "POST" && url.pathname === "/admin/editar-toques") return handleAdminEditarToques(req, env);
 
     if (req.method === "GET" && url.pathname.startsWith("/estado/")) {
       const phone = url.pathname.replace("/estado/", "");
@@ -139,6 +145,28 @@ async function handleAdmin(req: Request, env: Env): Promise<Response> {
     })
   );
   return Response.json({ ok: true });
+}
+
+async function handleAdminAccion(req: Request, env: Env, accion: string): Promise<Response> {
+  const secret = req.headers.get("X-Secret") ?? "";
+  if (secret !== env.CLOSER_SECRET) return new Response("Unauthorized", { status: 403 });
+  const body = await req.json<{ phone: string }>().catch(() => ({ phone: "" }));
+  if (!body.phone) return Response.json({ ok: false, error: "phone requerido" }, { status: 400 });
+  const conv = await getAgentByName(env.Conversation, limpiarPhone(body.phone));
+  return conv.fetch(new Request(`https://do/admin/${accion}`, { method: "POST" }));
+}
+
+async function handleAdminEditarToques(req: Request, env: Env): Promise<Response> {
+  const secret = req.headers.get("X-Secret") ?? "";
+  if (secret !== env.CLOSER_SECRET) return new Response("Unauthorized", { status: 403 });
+  const body = await req.json<{ phone: string; toques: string[] }>().catch(() => ({ phone: "", toques: [] }));
+  if (!body.phone) return Response.json({ ok: false, error: "phone requerido" }, { status: 400 });
+  const conv = await getAgentByName(env.Conversation, limpiarPhone(body.phone));
+  return conv.fetch(new Request("https://do/admin/editar-toques", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ toques: body.toques }),
+  }));
 }
 
 function limpiarPhone(raw: string): string {

@@ -547,6 +547,31 @@ export class DB {
     return this.rowToQuote(created!);
   }
 
+  /** Leads con alertas del closer pendientes (cierre/transferir/frío, no rechazados). */
+  async getCloserAlerts(): Promise<
+    { leadId: string; name: string | null; phone: string; tipo: string; createdAt: string; stage: string }[]
+  > {
+    const res = await this.db
+      .prepare(
+        `SELECT e.lead_id, l.name, l.phone, e.type, e.created_at, l.stage
+         FROM events e
+         JOIN leads l ON l.id = e.lead_id
+         WHERE e.type IN ('closer_cierre', 'closer_transferir', 'closer_frio')
+           AND l.stage != 'rechazado'
+         ORDER BY e.created_at DESC
+         LIMIT 20`
+      )
+      .all();
+    return ((res.results ?? []) as any[]).map((r) => ({
+      leadId:    r.lead_id as string,
+      name:      r.name ?? null,
+      phone:     r.phone as string,
+      tipo:      (r.type as string).replace("closer_", ""),
+      createdAt: r.created_at as string,
+      stage:     r.stage as string,
+    }));
+  }
+
   /* ─── Sistema de curación autónoma (traza + few-shots) ─────────────── */
 
   async saveTrace(data: {

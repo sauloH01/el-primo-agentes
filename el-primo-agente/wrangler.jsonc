@@ -26,7 +26,8 @@
     "HUBSPOT_DEALSTAGE_ID": "1374171315",
     "COTIZADOR_URL": "https://el-primo-cotizador.saulohs16.workers.dev",
     "RENDER_URL": "https://el-primo-render.saulohs16.workers.dev",
-    "PANEL_URL": "https://carpinteriaelprimo.com"
+    "PANEL_URL": "https://carpinteriaelprimo.com",
+    "CLOSER_URL": "https://el-primo-closer.saulohs16.workers.dev"
   },
 
   // Base de datos D1 (fuente única de verdad del CRM).

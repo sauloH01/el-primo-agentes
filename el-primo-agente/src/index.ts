@@ -41,6 +41,9 @@ export default {
       if (request.method === "POST" && pathname === "/landing-lead") {
         return await handleLandingLead(request, env);
       }
+      if (request.method === "POST" && pathname === "/api/closer-event") {
+        return await handleCloserEvent(request, env);
+      }
       if (pathname.startsWith("/api/admin/")) {
         return await handleAdmin(request, env, url);
       }
@@ -496,6 +499,11 @@ async function handleAdmin(request: Request, env: Env, url: URL): Promise<Respon
   const parts = url.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
   const sub = parts.slice(2); // ["leads","<id>","accion"] etc.
 
+  // GET /api/admin/closer-alerts — leads con alertas de cierre/transferir/frío
+  if (request.method === "GET" && sub[0] === "closer-alerts") {
+    return json({ alerts: await db.getCloserAlerts() });
+  }
+
   // GET /api/admin/stats
   if (request.method === "GET" && sub[0] === "stats" && sub.length === 1) {
     return json(await db.getStats());
@@ -788,7 +796,91 @@ async function handleAdmin(request: Request, env: Env, url: URL): Promise<Respon
     return json({ ok: true, preview: quoteText.substring(0, 200) });
   }
 
+  // GET /api/admin/leads/:id/followup  — estado del closer para este lead
+  if (request.method === "GET" && sub[0] === "leads" && sub[2] === "followup") {
+    if (!env.CLOSER_URL) return json({ error: "closer_not_configured" }, 500);
+    const lead = await db.getLeadById(sub[1]);
+    if (!lead) return json({ error: "not_found" }, 404);
+    const phoneClean = lead.phone.replace(/[^0-9+]/g, "");
+    const closerRes = await fetch(
+      `${env.CLOSER_URL}/estado/${encodeURIComponent(phoneClean)}`,
+      { signal: AbortSignal.timeout(5000) }
+    ).catch(() => null);
+    if (!closerRes || !closerRes.ok) return json({ error: "closer_unavailable" }, 502);
+    return json(await closerRes.json());
+  }
+
+  // POST /api/admin/leads/:id/followup  — pausar/reanudar/toque-manual/editar-toques
+  if (request.method === "POST" && sub[0] === "leads" && sub[2] === "followup") {
+    if (!env.CLOSER_URL || !env.CLOSER_SECRET) return json({ error: "closer_not_configured" }, 500);
+    const lead = await db.getLeadById(sub[1]);
+    if (!lead) return json({ error: "not_found" }, 404);
+
+    const body = await request.json().catch(() => ({})) as { accion: string; toques?: string[] };
+    const accion = body.accion;
+    const allowed = ["pausar", "reanudar", "toque-manual", "editar-toques"];
+    if (!accion || !allowed.includes(accion)) {
+      return json({ error: "accion_invalid", allowed }, 400);
+    }
+
+    const payload: Record<string, unknown> = { phone: lead.phone };
+    if (accion === "editar-toques" && body.toques) payload.toques = body.toques;
+
+    const closerRes = await fetch(`${env.CLOSER_URL}/admin/${accion}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Secret": env.CLOSER_SECRET },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(10000),
+    }).catch(() => null);
+    if (!closerRes || !closerRes.ok) return json({ error: "closer_error" }, 502);
+
+    await db.logEvent(`followup_${accion}`, sub[1], { accion });
+    return json(await closerRes.json());
+  }
+
   return json({ error: "not_found" }, 404);
+}
+
+/* ------------------------------------------------------------------ */
+/*  PUSH DESDE EL CLOSER — event log + actualización de etapa          */
+/* ------------------------------------------------------------------ */
+async function handleCloserEvent(request: Request, env: Env): Promise<Response> {
+  const secret = request.headers.get("X-Secret") ?? "";
+  if (!env.CLOSER_SECRET || secret !== env.CLOSER_SECRET) {
+    return json({ error: "unauthorized" }, 401);
+  }
+
+  const body = await request.json().catch(() => null) as {
+    phone?: string;
+    tipo?: string;
+    leadName?: string;
+    closed?: boolean;
+    paused?: boolean;
+    followUpStep?: number;
+    coldNotified?: boolean;
+    lastOutboundAt?: string;
+  } | null;
+
+  if (!body?.phone || !body?.tipo) {
+    return json({ error: "phone y tipo requeridos" }, 400);
+  }
+
+  const db = new DB(env.DB, env.AGENT_ID);
+  const lead = await db.getLeadByPhone(normalizePhone(body.phone));
+  if (!lead) return json({ ok: true, note: "lead_not_found" });
+
+  await db.logEvent(`closer_${body.tipo}`, lead.id, {
+    tipo: body.tipo,
+    followUpStep: body.followUpStep ?? null,
+    closed: body.closed ?? false,
+    paused: body.paused ?? false,
+  });
+
+  if (body.tipo === "cierre" && lead.stage !== "cotizado") {
+    await db.updateLead(lead.id, { stage: "cotizado", qualification: "calificado" });
+  }
+
+  return json({ ok: true });
 }
 
 /* ------------------------------------------------------------------ */

@@ -112,6 +112,8 @@ export interface Env {
   RENDER_SECRET?: string;
   PANEL_URL?: string;
   ARTIFACTS?: R2Bucket; // bucket elprimo-artifacts (PNG, SVG, DOCX)
+  CLOSER_URL?: string;
+  CLOSER_SECRET?: string;
 }
 
 // ─── Tipos del sistema de curación autónoma ───────────────────────────────

@@ -43,6 +43,8 @@ type ConversationState = {
   followUpStep: number;
   followUpScheduleId: string;
   coldNotified: boolean;
+  paused: boolean;
+  customToques: string[] | null; // null = usar FOLLOWUPS por defecto
 };
 
 const INITIAL: ConversationState = {
@@ -59,6 +61,8 @@ const INITIAL: ConversationState = {
   followUpStep: 0,
   followUpScheduleId: "",
   coldNotified: false,
+  paused: false,
+  customToques: null,
 };
 
 export class Conversation extends Agent<Env, ConversationState> {
@@ -69,6 +73,10 @@ export class Conversation extends Agent<Env, ConversationState> {
     if (req.method === "POST" && url.pathname === "/process-message") return this.procesarMensaje(req);
     if (req.method === "POST" && url.pathname === "/set-context") return this.setContexto(req);
     if (req.method === "POST" && url.pathname === "/admin") return this.adminInstruccion(req);
+    if (req.method === "POST" && url.pathname === "/admin/pausar") return this.adminPausar();
+    if (req.method === "POST" && url.pathname === "/admin/reanudar") return this.adminReanudar();
+    if (req.method === "POST" && url.pathname === "/admin/toque-manual") return this.adminToqueManual();
+    if (req.method === "POST" && url.pathname === "/admin/editar-toques") return this.adminEditarToques(req);
     if (req.method === "POST" && url.pathname === "/reset") return this.reset();
     if (req.method === "GET" && url.pathname === "/state") return Response.json(this.state);
     return new Response("ok", { status: 200 });
@@ -195,12 +203,69 @@ export class Conversation extends Agent<Env, ConversationState> {
     return Response.json({ ok: true });
   }
 
+  private async adminPausar(): Promise<Response> {
+    if (this.state.followUpScheduleId) {
+      try { await this.cancelSchedule(this.state.followUpScheduleId); } catch {}
+    }
+    this.setState({ ...this.state, paused: true, followUpScheduleId: "" });
+    await this.pushCloserEvent("pausado");
+    return Response.json({ ok: true });
+  }
+
+  private async adminReanudar(): Promise<Response> {
+    this.setState({ ...this.state, paused: false });
+    await this.programarSiguienteFollowUp();
+    await this.pushCloserEvent("reanudado");
+    return Response.json({ ok: true });
+  }
+
+  private async adminToqueManual(): Promise<Response> {
+    const pausedBefore = this.state.paused;
+    // Despausa temporalmente para ejecutar el toque
+    if (pausedBefore) this.setState({ ...this.state, paused: false });
+    await this.ejecutarFollowUp();
+    await this.pushCloserEvent("toque_manual");
+    return Response.json({ ok: true });
+  }
+
+  private async adminEditarToques(req: Request): Promise<Response> {
+    const body = await req.json<{ toques: string[] }>();
+    if (!Array.isArray(body.toques) || body.toques.length === 0) {
+      return Response.json({ ok: false, error: "toques requeridos" }, { status: 400 });
+    }
+    this.setState({ ...this.state, customToques: body.toques });
+    return Response.json({ ok: true });
+  }
+
+  private async pushCloserEvent(tipo: string): Promise<void> {
+    if (!this.env.AGENTE_URL) return;
+    try {
+      await fetch(`${this.env.AGENTE_URL}/api/closer-event`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Secret": this.env.CLOSER_SECRET },
+        body: JSON.stringify({
+          phone: this.state.phone,
+          tipo,
+          leadName: this.state.leadName,
+          closed: this.state.closed,
+          paused: this.state.paused ?? false,
+          followUpStep: this.state.followUpStep,
+          coldNotified: this.state.coldNotified,
+          lastOutboundAt: this.state.lastOutboundAt,
+        }),
+        signal: AbortSignal.timeout(5000),
+      });
+    } catch {}
+  }
+
   // ── Callback de seguimiento (lo dispara this.schedule) ────────────────────
   async ejecutarFollowUp(): Promise<void> {
-    if (this.state.closed || !this.state.phone) return;
+    if (this.state.closed || !this.state.phone || this.state.paused) return;
 
     if (this.state.followUpStep < FOLLOWUPS.length) {
-      const texto = FOLLOWUPS[this.state.followUpStep].build(this.firstName());
+      const texto =
+        this.state.customToques?.[this.state.followUpStep] ??
+        FOLLOWUPS[this.state.followUpStep].build(this.firstName());
       await enviarMensajeWA(
         this.env.TWILIO_ACCOUNT_SID,
         this.env.TWILIO_AUTH_TOKEN,
@@ -275,6 +340,7 @@ export class Conversation extends Agent<Env, ConversationState> {
       messages: this.state.messages.slice(-6),
       contexto: this.state.cotizacionContext,
     });
+    await this.pushCloserEvent(motivo);
   }
 
   private firstName(): string {

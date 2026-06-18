@@ -9,6 +9,7 @@ ADMIN_API_TOKEN=token-seguro-largo
 HUBSPOT_ACCESS_TOKEN=pat-na1-...
 COTIZADOR_SECRET=secreto-compartido-cotizador
 RENDER_SECRET=secreto-compartido-render  # Mismo valor que RENDER_SECRET en el-primo-render
+CLOSER_SECRET=secreto-compartido-closer  # Mismo valor que CLOSER_SECRET en el-primo-closer
 
 # Omite SKIP_TWILIO_VALIDATION en producción.
 # En local puedes poner: SKIP_TWILIO_VALIDATION=1
