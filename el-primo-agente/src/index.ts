@@ -346,22 +346,41 @@ async function notificarCotizador(
   if (!env.COTIZADOR_URL || !env.COTIZADOR_SECRET) return;
   const cf = result.capturedFields ?? {};
   const budget = cf.budget ?? lead.budget;
-  const payload = {
-    nombre: cf.name ?? lead.name ?? "Cliente",
-    telefono: from.replace(/[^0-9]/g, ""),
-    zona: cf.city ?? lead.city ?? "Fusagasugá",
-    tiposMueble: [mapTipoMueble(cf.projectType ?? lead.projectType)],
-    descripcion: cf.projectType ?? lead.projectType ?? undefined,
-    presupuestoCliente: budget ? `$${budget.toLocaleString("es-CO")}` : undefined,
-    fuenteLead: "whatsapp-agente" as const,
+
+  // Fase 2d: usar /preview (sin email, sin render) y guardar borrador en D1.
+  // Audenar revisa y ajusta en el panel antes de enviar al cliente.
+  const payload = buildCotizadorPayload(lead, {
+    ...cf,
     leadId: lead.id,
-  };
+    presupuestoCliente: budget ? `$${budget.toLocaleString("es-CO")}` : undefined,
+  });
+
   try {
-    await fetch(`${env.COTIZADOR_URL}/notificar`, {
+    const res = await fetch(`${env.COTIZADOR_URL}/preview`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Secret": env.COTIZADOR_SECRET },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000),
     });
+    if (!res.ok) return;
+    const data = await res.json() as { ok: boolean; pricing: unknown; contenido: unknown };
+    if (!data.ok) return;
+
+    const db = new DB(env.DB, env.AGENT_ID);
+    await db.upsertQuote(lead.id, {
+      params: {
+        tiposMueble: [mapTipoMueble(cf.projectType ?? lead.projectType)],
+        metros:          cf.metros         ?? undefined,
+        zona:            cf.city           ?? lead.city            ?? undefined,
+        colorPreferido:  cf.colorPreferido ?? undefined,
+        configuracion:   cf.configuracion  ?? undefined,
+        descripcion:     cf.projectType    ?? lead.projectType     ?? undefined,
+      },
+      pricing: data.pricing as Record<string, unknown>,
+      prose:   data.contenido as Record<string, unknown>,
+      status:  "borrador",
+    });
+    await db.logEvent("quote_draft_created", lead.id, { source: "auto_qualify" });
   } catch {
     /* silencioso — nunca rompe el flujo del webhook */
   }
@@ -411,16 +430,21 @@ async function notifyOwner(
   const tiersResumen = result.tiers
     .map((t) => `• ${t.tier}: $${t.price.toLocaleString("es-CO")}`)
     .join("\n");
+  const panelLink = env.PANEL_URL
+    ? `\n🔗 *Revisar en el panel:* ${env.PANEL_URL}/admin/leads/${leadId}`
+    : "";
   const msg = [
     "🔥 *LEAD CALIFICADO*",
     `👤 ${lead.name ?? "Cliente"}`,
     `📍 ${lead.city ?? "Zona por confirmar"}`,
     lead.budget ? `💰 Presupuesto: $${lead.budget.toLocaleString("es-CO")}` : "",
     "",
-    tiersResumen ? "📋 *Cotización estimada:*" : "",
+    tiersResumen ? "📋 *Cotización estimada (interna):*" : "",
     tiersResumen,
     "",
     `📞 Contactar: ${phone}`,
+    "✅ Borrador de cotización listo en el panel.",
+    panelLink,
   ]
     .filter(Boolean)
     .join("\n");

@@ -110,6 +110,7 @@ export interface Env {
   COTIZADOR_SECRET?: string;
   RENDER_URL?: string;
   RENDER_SECRET?: string;
+  PANEL_URL?: string;
   ARTIFACTS?: R2Bucket; // bucket elprimo-artifacts (PNG, SVG, DOCX)
 }
 
