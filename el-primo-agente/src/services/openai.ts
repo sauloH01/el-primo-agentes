@@ -1,16 +1,19 @@
 // src/services/openai.ts
 // Cerebro del agente: responde con MEMORIA (historial completo) y califica el lead.
 import OpenAI from "openai";
-import type { Lead, AgentReply, ConversationMessage, Stage } from "../types";
+import type { Env, Lead, AgentReply, ConversationMessage, Stage } from "../types";
 import { buildKnowledge } from "../knowledge";
+import { loadFewShots } from "./curator";
 
 const VALID_STAGES: Stage[] = ["nuevo", "en_proceso", "calificado", "rechazado"];
 
 export class OpenAIClient {
   private openai: OpenAI;
+  private env: Env;
 
-  constructor(env: { OPENAI_API_KEY: string }) {
+  constructor(env: Env) {
     this.openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+    this.env = env;
   }
 
   /**
@@ -23,28 +26,62 @@ export class OpenAIClient {
   ): Promise<AgentReply> {
     const knowledge = buildKnowledge();
 
+    // Few-shots dinámicos del sistema de curación (mejoran con el tiempo)
+    const fewShots = await loadFewShots(this.env).catch(() => []);
+    const fewShotBlock = buildFewShotBlock(fewShots, lead);
+
+    const origenBloque = lead.source === "landing"
+      ? `ORIGEN: Landing (el cliente ya nos dio datos por formulario web).
+IMPORTANTE: Ya sabemos su nombre, zona, tipo de proyecto y presupuesto aproximado.
+SALÚDALO por su nombre (si lo tenemos), reconoce su proyecto y NO vuelvas a preguntar lo que ya conocemos.
+Solo llena los huecos que falten (metros, configuración, urgencia, etc.).`
+      : `ORIGEN: WhatsApp orgánico (llegó directo sin formulario previo).
+Sigue el proceso normal: conexión → calificación suave → construir valor → cerrar visita.`;
+
     const systemPrompt = `${knowledge}
+${fewShotBlock}
 
 INSTRUCCIONES DE SALIDA
 Eres el agente de ventas en una conversación de WhatsApp en curso. Lee TODO el historial y responde el último mensaje del cliente.
-Datos que ya conocemos de este lead (pueden estar vacíos):
+Datos que ya conocemos de este lead:
 - Nombre: ${lead.name ?? "(desconocido)"}
 - Ciudad/Zona: ${lead.city ?? "(desconocida)"}
 - Presupuesto: ${lead.budget ? `$${lead.budget.toLocaleString("es-CO")} COP` : "(desconocido)"}
+- Proyecto: ${lead.projectType ?? "(desconocido)"}
 
-Devuelve SIEMPRE un JSON con esta forma exacta:
+${origenBloque}
+
+TABLA DE PRECIOS — USO INTERNO ÚNICAMENTE (JAMÁS menciones estos valores al cliente en el "reply"):
+- Cocina integral (3-5m lineales): $12M – $28M
+- Closet individual (2-3m): $4M – $12M  |  Vestier / closet grande (4-6m): $8M – $22M
+- Mueble de baño: $3M – $8M  |  Centro de entretenimiento / TV: $5M – $14M
+- Estudio / home office: $3M – $9M  |  Puerta decorativa: $1M – $3M
+- Mobiliario completo (múltiples ambientes): suma de los ambientes
+  → presupuesto $30M–$60M → tiers $20M / $40M / $55M
+  → presupuesto $60M–$120M → tiers $40M / $70M / $95M
+  → presupuesto >$120M → tiers proporcionales al 35% / 65% / 90% del presupuesto
+Coherencia: tier Lujo debe estar entre P×0.7 y P×1.0. PROHIBIDO tiers menores al 10% del presupuesto.
+
+REGLA ABSOLUTA — EL CLIENTE NUNCA VE PRECIOS:
+Los tiers van SOLO en el campo "tiers" del JSON. NUNCA en el campo "reply".
+Cuando ya tengas tipo + zona + presupuesto suficiente, responde algo como:
+"Con esto Audenar te arma una propuesta personalizada. ¿Esta semana o la próxima te queda bien para la visita técnica?" (adapta al tono de la conversación)
+Meta del chat: recolectar datos y cerrar la visita técnica, NO cotizar precios al cliente.
+
+Devuelve SIEMPRE un JSON con esta forma:
 {
   "reply": "respuesta breve para WhatsApp (máx 350 caracteres)",
   "nextStage": "nuevo" | "en_proceso" | "calificado" | "rechazado",
   "isQualified": true | false,
-  "tiers": [ { "tier": "Básico", "price": 4000000 }, { "tier": "Premium", "price": 4800000 }, { "tier": "Lujo", "price": 6000000 } ],
-  "capturedFields": { "name": "...", "city": "...", "budget": 0, "projectType": "..." }
+  "tiers": [ { "tier": "Básico", "price": NÚMERO }, { "tier": "Premium", "price": NÚMERO }, { "tier": "Lujo", "price": NÚMERO } ],
+  "capturedFields": { "name": "...", "city": "...", "budget": 0, "projectType": "...", "metros": 0, "urgencia": "...", "colorPreferido": "...", "configuracion": "..." }
 }
 Reglas:
-- Si aún falta tipo de mueble, zona o presupuesto → nextStage="en_proceso", isQualified=false, sigue preguntando UNA cosa a la vez. "tiers" puede ir vacío.
-- Marca isQualified=true y nextStage="calificado" SOLO cuando tengas tipo de proyecto + zona + un presupuesto/estimación que llegue al ticket mínimo. Incluye los 3 tiers.
-- Si la estimación no llega al ticket mínimo → nextStage="rechazado", isQualified=false, "tiers" vacío, y despídete con amabilidad ofreciendo proyectos más pequeños a futuro.
-- En "capturedFields" incluye solo lo que hayas podido deducir en esta conversación (omite lo que no sepas).`;
+- Si falta tipo de mueble, zona o presupuesto → nextStage="en_proceso", isQualified=false, pregunta UNA cosa a la vez. "tiers" puede ir [].
+- Marca isQualified=true y nextStage="calificado" SOLO con tipo + zona + presupuesto ≥ ticket mínimo. Calcula los 3 tiers internamente (nunca en "reply").
+- Si el presupuesto no alcanza el mínimo → nextStage="rechazado", isQualified=false, tiers=[], despídete con amabilidad.
+- En "capturedFields" incluye todos los campos deducibles: name, city, budget, projectType, metros, urgencia, colorPreferido, configuracion.
+- Pregunta UN campo adicional por turno si enriquece el proyecto (metros, configuración, urgencia).`;
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: "system", content: systemPrompt },
@@ -57,7 +94,7 @@ Reglas:
     let parsed: Partial<AgentReply> = {};
     try {
       const res = await this.openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: this.env.OPENAI_MODEL ?? "gpt-4o-mini",
         temperature: 0.5,
         messages,
         response_format: { type: "json_object" },
@@ -89,4 +126,48 @@ Reglas:
       capturedFields: parsed.capturedFields ?? {},
     };
   }
+}
+
+// ─── Few-shot builder ────────────────────────────────────────────────────────
+
+type FewShot = { projectType: string | null; budgetTier: string; input: string; idealOutput: string };
+
+function classifyLeadBudget(budget: number): string {
+  if (budget >= 50_000_000) return "muy_alto";
+  if (budget >= 20_000_000) return "alto";
+  if (budget >= 5_000_000)  return "medio";
+  return "bajo";
+}
+
+function buildFewShotBlock(shots: FewShot[], lead: Lead): string {
+  if (shots.length === 0) return "";
+
+  const budgetTier = classifyLeadBudget(lead.budget);
+  const projectType = (lead.projectType ?? "").toLowerCase();
+
+  // Priorizar ejemplos relevantes: mismo tipo de proyecto o mismo tier de presupuesto
+  const sorted = [...shots].sort((a, b) => {
+    const aMatch =
+      (a.budgetTier === budgetTier ? 2 : 0) +
+      (projectType && a.projectType && projectType.includes(a.projectType.toLowerCase()) ? 2 : 0);
+    const bMatch =
+      (b.budgetTier === budgetTier ? 2 : 0) +
+      (projectType && b.projectType && projectType.includes(b.projectType.toLowerCase()) ? 2 : 0);
+    return bMatch - aMatch;
+  });
+
+  const top = sorted.slice(0, 3); // máximo 3 ejemplos para no inflar el prompt
+  if (top.length === 0) return "";
+
+  const examples = top
+    .map(
+      (s, i) =>
+        `Ejemplo ${i + 1} (tipo: ${s.projectType ?? "general"}, presupuesto: ${s.budgetTier}):\n` +
+        `  Cliente: ${s.input}\n` +
+        `  Agente: ${s.idealOutput}`
+    )
+    .join("\n\n");
+
+  return `\nEJEMPLOS DE CONVERSACIONES EXITOSAS (aprende del tono y la estructura, NO copies literalmente):
+${examples}`;
 }

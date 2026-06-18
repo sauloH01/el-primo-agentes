@@ -20,11 +20,13 @@ export interface Lead {
   city: string | null;
   budget: number; // COP
   projectType: string | null; // tipo de mueble/proyecto
+  source: "landing" | "organico"; // cómo llegó el lead
   stage: Stage;
   qualification: Qualification;
   tiers: Tier[];
   hubspotContactId: string | null;
   hubspotDealId: string | null;
+  notas: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -45,6 +47,10 @@ export interface CapturedFields {
   city?: string;
   budget?: number;
   projectType?: string;
+  metros?: number;        // metros lineales o m² del proyecto
+  urgencia?: string;      // cuándo lo quiere (ej: "este mes", "en 3 meses")
+  colorPreferido?: string;
+  configuracion?: string; // puertas, cajones, especificaciones especiales
 }
 
 /** Resultado estructurado que devuelve OpenAI tras procesar un turno. */
@@ -59,18 +65,62 @@ export interface AgentReply {
 /** Variables de entorno del Worker. */
 export interface Env {
   DB: D1Database;
+  CURATOR_KV: KVNamespace;              // KV para few-shots en cache caliente
   OPENAI_API_KEY: string;
+  OPENAI_MODEL?: string;                // Modelo de ejecución (default: gpt-4o-mini)
+  JUDGE_MODEL?: string;                 // Modelo juez (default: gpt-4o)
   WHATSAPP_ACCOUNT_SID: string;
   WHATSAPP_AUTH_TOKEN: string;
   WHATSAPP_SENDER_NUMBER: string;
   AUDENAR_PHONE: string;
   AGENT_ID: string;
   ADMIN_API_TOKEN: string;
-  // HubSpot (espejo de leads). Si HUBSPOT_ACCESS_TOKEN está vacío, el espejo se omite.
   HUBSPOT_ACCESS_TOKEN: string;
   HUBSPOT_PIPELINE_ID: string;
   HUBSPOT_DEALSTAGE_ID: string;
-  // Cotizador (propuesta formal). Si COTIZADOR_URL está vacío, no se notifica.
   COTIZADOR_URL?: string;
   COTIZADOR_SECRET?: string;
+}
+
+// ─── Tipos del sistema de curación autónoma ───────────────────────────────
+
+export interface ConversationTrace {
+  id: string;
+  leadId: string;
+  correlationId: string;
+  inputRaw: string;
+  outputRaw: string;
+  stageBefore: Stage;
+  stageAfter: Stage;
+  isQualified: boolean;
+  latencyMs: number;
+  model: string;
+  tokensUsed: number;
+  createdAt: string;
+}
+
+export interface JudgeVerdict {
+  /** 1–5: ¿El agente extrajo correctamente nombre/ciudad/presupuesto/tipo? */
+  scoreMapping: number;
+  /** 1–5: ¿Los tiers calculados son coherentes con el presupuesto y tipo de proyecto? */
+  scoreExtraction: number;
+  /** 1–5: ¿El agente manejó bien mensajes ambiguos, objeciones o cambios de tema? */
+  scoreResilience: number;
+  /** Promedio de los tres (1.0–5.0) */
+  totalScore: number;
+  /** Crítica estructurada para el log. */
+  critique: string;
+  /** Si totalScore >= 4.5, el agente recomienda promover a few-shot. */
+  promoteFewShot: boolean;
+}
+
+export interface FewShotExample {
+  id: string;
+  traceId: string;
+  projectType: string | null;
+  budgetTier: "bajo" | "medio" | "alto" | "muy_alto";
+  input: string;
+  idealOutput: string;
+  avgScore: number;
+  isActive: boolean;
 }

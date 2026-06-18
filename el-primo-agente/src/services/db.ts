@@ -47,11 +47,13 @@ function rowToLead(row: any): Lead {
     city: row.city ?? null,
     budget: Number(row.budget) || 0,
     projectType: row.project_type ?? null,
+    source: (row.source as "landing" | "organico") ?? "organico",
     stage: (row.stage as Stage) ?? "nuevo",
     qualification: (row.qualification as Qualification) ?? "en_proceso",
     tiers: parseTiers(row.tiers_json),
     hubspotContactId: row.hubspot_contact_id ?? null,
     hubspotDealId: row.hubspot_deal_id ?? null,
+    notas: row.notas ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -77,11 +79,18 @@ export class DB {
 
   /**
    * Crea el lead si no existe (primer contacto entrante) y lo devuelve.
-   * Arregla el bug de descartar números desconocidos.
+   * Si ya existe, devuelve el existente sin sobrescribir datos.
    */
   async upsertLeadByPhone(
     phone: string,
-    seed: { name?: string; city?: string; budget?: number; agentId?: string } = {}
+    seed: {
+      name?: string;
+      city?: string;
+      budget?: number;
+      agentId?: string;
+      projectType?: string;
+      source?: "landing" | "organico";
+    } = {}
   ): Promise<Lead> {
     const p = normalizePhone(phone);
     const existing = await this.getLeadByPhone(p);
@@ -90,8 +99,8 @@ export class DB {
     const id = uuid();
     await this.db
       .prepare(
-        `INSERT INTO leads (id, agent_id, name, phone, city, budget, stage, qualification)
-         VALUES (?, ?, ?, ?, ?, ?, 'nuevo', 'en_proceso')`
+        `INSERT INTO leads (id, agent_id, name, phone, city, budget, project_type, source, stage, qualification)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'nuevo', 'en_proceso')`
       )
       .bind(
         id,
@@ -99,13 +108,30 @@ export class DB {
         seed.name ?? null,
         p,
         seed.city ?? null,
-        Math.round(seed.budget ?? 0)
+        Math.round(seed.budget ?? 0),
+        seed.projectType ?? null,
+        seed.source ?? "organico"
       )
       .run();
 
     const lead = await this.getLeadById(id);
     if (!lead) throw new Error("No se pudo crear el lead");
     return lead;
+  }
+
+  /** Enriquece un lead existente con datos de la landing (solo rellena campos vacíos). */
+  async enrichFromLanding(
+    id: string,
+    data: { name?: string; city?: string; budget?: number; projectType?: string }
+  ): Promise<void> {
+    const lead = await this.getLeadById(id);
+    if (!lead) return;
+    await this.updateLead(id, {
+      name:        !lead.name && data.name ? data.name : undefined,
+      city:        !lead.city && data.city ? data.city : undefined,
+      budget:      lead.budget === 0 && data.budget ? data.budget : undefined,
+      projectType: !lead.projectType && data.projectType ? data.projectType : undefined,
+    });
   }
 
   /** Añade un mensaje al historial. Soporta medios (audio, imagen, etc.). */
@@ -292,6 +318,132 @@ export class DB {
     return { total, byStage, newToday, daily };
   }
 
+  /** Guarda una nota de Audenar en el lead. */
+  async addNote(id: string, nota: string): Promise<void> {
+    await this.db
+      .prepare("UPDATE leads SET notas = ?, updated_at = datetime('now') WHERE id = ?")
+      .bind(nota.trim(), id)
+      .run();
+  }
+
+  /** Historial de eventos de un lead para la línea de tiempo de actividad. */
+  async getLeadEvents(
+    leadId: string,
+    limit = 50
+  ): Promise<{ type: string; payload: unknown; createdAt: string }[]> {
+    const res = await this.db
+      .prepare(
+        "SELECT type, payload_json, created_at FROM events WHERE lead_id = ? ORDER BY created_at DESC LIMIT ?"
+      )
+      .bind(leadId, limit)
+      .all();
+    return ((res.results ?? []) as any[]).map((r) => ({
+      type: r.type,
+      payload: r.payload_json ? JSON.parse(r.payload_json) : null,
+      createdAt: r.created_at,
+    }));
+  }
+
+  /** Métricas extendidas de revenue, funnel y leads estancados. */
+  async getExtendedStats(): Promise<{
+    revenueByStage: Record<string, number>;
+    revenueTotal: number;
+    avgDealSize: number;
+    byCity: { city: string; count: number; revenue: number }[];
+    byProjectType: { type: string; count: number; revenue: number }[];
+    staleLeads: { id: string; name: string | null; phone: string; daysStale: number }[];
+    conversionRates: { nuevoCal: number; calCot: number };
+  }> {
+    // Revenue por etapa (excluye rechazados)
+    const revStageRes = await this.db
+      .prepare(
+        "SELECT stage, SUM(budget) AS rev FROM leads WHERE stage != 'rechazado' GROUP BY stage"
+      )
+      .all();
+    const revenueByStage: Record<string, number> = {};
+    let revenueTotal = 0;
+    for (const r of (revStageRes.results ?? []) as any[]) {
+      const v = Number(r.rev) || 0;
+      revenueByStage[r.stage] = v;
+      revenueTotal += v;
+    }
+
+    // Deal size promedio (leads con budget > 0)
+    const avgRes = await this.db
+      .prepare("SELECT AVG(budget) AS avg FROM leads WHERE budget > 0 AND stage != 'rechazado'")
+      .first();
+    const avgDealSize = Math.round(Number((avgRes as any)?.avg ?? 0));
+
+    // Revenue y conteo por ciudad (top 8)
+    const cityRes = await this.db
+      .prepare(
+        `SELECT COALESCE(city, 'Sin zona') AS city, COUNT(*) AS cnt, SUM(budget) AS rev
+         FROM leads WHERE stage != 'rechazado' GROUP BY city ORDER BY rev DESC LIMIT 8`
+      )
+      .all();
+    const byCity = ((cityRes.results ?? []) as any[]).map((r) => ({
+      city: r.city as string,
+      count: Number(r.cnt),
+      revenue: Number(r.rev) || 0,
+    }));
+
+    // Revenue y conteo por tipo de proyecto (top 8)
+    const typeRes = await this.db
+      .prepare(
+        `SELECT COALESCE(project_type, 'Sin definir') AS tipo, COUNT(*) AS cnt, SUM(budget) AS rev
+         FROM leads WHERE stage != 'rechazado' GROUP BY project_type ORDER BY rev DESC LIMIT 8`
+      )
+      .all();
+    const byProjectType = ((typeRes.results ?? []) as any[]).map((r) => ({
+      type: r.tipo as string,
+      count: Number(r.cnt),
+      revenue: Number(r.rev) || 0,
+    }));
+
+    // Leads sin actividad > 3 días (no rechazados, no cotizados)
+    const staleRes = await this.db
+      .prepare(
+        `SELECT id, name, phone,
+                CAST((julianday('now') - julianday(updated_at)) AS INTEGER) AS days_stale
+         FROM leads
+         WHERE stage NOT IN ('rechazado','cotizado')
+           AND updated_at < datetime('now', '-3 days')
+         ORDER BY days_stale DESC LIMIT 10`
+      )
+      .all();
+    const staleLeads = ((staleRes.results ?? []) as any[]).map((r) => ({
+      id: r.id as string,
+      name: r.name ?? null,
+      phone: r.phone as string,
+      daysStale: Number(r.days_stale),
+    }));
+
+    // Tasas de conversión
+    const stageCountRes = await this.db
+      .prepare("SELECT stage, COUNT(*) AS c FROM leads GROUP BY stage")
+      .all();
+    const sc: Record<string, number> = {};
+    for (const r of (stageCountRes.results ?? []) as any[]) sc[r.stage] = Number(r.c);
+    const totalActivos = (sc.nuevo ?? 0) + (sc.en_proceso ?? 0) + (sc.calificado ?? 0) + (sc.cotizado ?? 0);
+    const nuevoCal = totalActivos > 0 ? ((sc.calificado ?? 0) + (sc.cotizado ?? 0)) / totalActivos : 0;
+    const calCot = ((sc.calificado ?? 0) + (sc.cotizado ?? 0)) > 0
+      ? (sc.cotizado ?? 0) / ((sc.calificado ?? 0) + (sc.cotizado ?? 0))
+      : 0;
+
+    return {
+      revenueByStage,
+      revenueTotal,
+      avgDealSize,
+      byCity,
+      byProjectType,
+      staleLeads,
+      conversionRates: {
+        nuevoCal: Math.round(nuevoCal * 100) / 100,
+        calCot: Math.round(calCot * 100) / 100,
+      },
+    };
+  }
+
   /** Lista de agentes registrados (panel multi-agente). */
   async listAgents(): Promise<
     { id: string; name: string; twilioNumber: string | null; active: boolean; leadCount: number }[]
@@ -310,5 +462,42 @@ export class DB {
       active: Number(r.active) === 1,
       leadCount: Number(r.lead_count) || 0,
     }));
+  }
+
+  /* ─── Sistema de curación autónoma (traza + few-shots) ─────────────── */
+
+  async saveTrace(data: {
+    leadId: string;
+    correlationId: string;
+    inputRaw: string;
+    outputRaw: string;
+    stageBefore: string;
+    stageAfter: string;
+    isQualified: boolean;
+    latencyMs: number;
+    model: string;
+    tokensUsed: number;
+  }): Promise<void> {
+    await this.db
+      .prepare(
+        `INSERT INTO conversation_traces
+         (id, lead_id, correlation_id, input_raw, output_raw,
+          stage_before, stage_after, is_qualified, latency_ms, model, tokens_used)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        uuid(),
+        data.leadId,
+        data.correlationId,
+        data.inputRaw,
+        data.outputRaw,
+        data.stageBefore,
+        data.stageAfter,
+        data.isQualified ? 1 : 0,
+        data.latencyMs,
+        data.model,
+        data.tokensUsed
+      )
+      .run();
   }
 }

@@ -1,15 +1,13 @@
-# Copia este archivo como  .dev.vars  (sin .example) para PROBAR EN LOCAL con `wrangler dev`.
-# wrangler carga aquí los SECRETOS en local. NO subas .dev.vars a git.
-# En PRODUCCIÓN estos valores se cargan con `wrangler secret put <NOMBRE>`.
+# Copia este archivo a .dev.vars y rellena con valores reales para desarrollo local.
+# NUNCA subas .dev.vars al repositorio (ya está en .gitignore).
+# En producción usa: npx wrangler secret put NOMBRE_VARIABLE
 
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxx
-WHATSAPP_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-WHATSAPP_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-ADMIN_API_TOKEN=pon-aqui-un-token-largo-y-secreto
-# Mismo token que usa elprimo-lead-worker (espejo de leads a HubSpot).
-# Déjalo vacío si por ahora NO quieres sincronizar con HubSpot.
-HUBSPOT_ACCESS_TOKEN=pat-xxxxxxxxxxxxxxxxxxxxxxxx
+OPENAI_API_KEY=sk-...
+WHATSAPP_ACCOUNT_SID=ACxxxxxx
+WHATSAPP_AUTH_TOKEN=xxxxxxxx
+ADMIN_API_TOKEN=token-seguro-largo
+HUBSPOT_ACCESS_TOKEN=pat-na1-...
+COTIZADOR_SECRET=secreto-compartido-cotizador
 
-# Solo para pruebas locales con curl (saltarse la validación de firma de Twilio).
-# NUNCA pongas esto en producción.
-SKIP_TWILIO_VALIDATION=1
+# Omite SKIP_TWILIO_VALIDATION en producción.
+# En local puedes poner: SKIP_TWILIO_VALIDATION=1
