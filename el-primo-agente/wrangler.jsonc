@@ -58,6 +58,14 @@
     }
   ],
 
+  // Service Bindings — llamadas Worker-a-Worker sin pasar por internet público.
+  // Reemplazan los fetch(...COTIZADOR_URL...) que no funcionan desde workers.dev.
+  "services": [
+    { "binding": "COTIZADOR_SVC", "service": "el-primo-cotizador" },
+    { "binding": "RENDER_SVC",    "service": "el-primo-render"    },
+    { "binding": "CLOSER_SVC",    "service": "el-primo-closer"    }
+  ],
+
   // Cron Trigger — curación autónoma cada 4 horas.
   "triggers": {
     "crons": ["0 */4 * * *"]

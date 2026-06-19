@@ -359,9 +359,9 @@ async function notificarCotizador(
   });
 
   try {
-    const res = await fetch(`${env.COTIZADOR_URL}/preview`, {
+    const res = await svcFetch(env.COTIZADOR_SVC, env.COTIZADOR_URL, "/preview", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Secret": env.COTIZADOR_SECRET },
+      headers: { "Content-Type": "application/json", "X-Secret": env.COTIZADOR_SECRET ?? "" },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(15000),
     });
@@ -458,6 +458,22 @@ async function notifyOwner(
   } catch (err: any) {
     await db.logEvent("error", leadId, { where: "notifyOwner", message: err?.message });
   }
+}
+
+/* ------------------------------------------------------------------ */
+/*  SERVICE-BINDING FETCH — Worker-a-Worker sin internet público      */
+/* ------------------------------------------------------------------ */
+
+// Usa el Service Binding cuando está disponible; si no, cae en fetch HTTP.
+// Los bindings evitan el error 1042 que ocurre al llamar workers.dev desde Workers.
+function svcFetch(
+  svc: Fetcher | undefined,
+  baseUrl: string | undefined,
+  path: string,
+  init?: RequestInit
+): Promise<Response> {
+  if (svc) return svc.fetch(new Request(`https://svc${path}`, init));
+  return fetch(`${baseUrl}${path}`, init);
 }
 
 /* ------------------------------------------------------------------ */
@@ -601,9 +617,9 @@ async function handleAdmin(request: Request, env: Env, url: URL): Promise<Respon
     // Si vienen params nuevos → recalcular vía cotizador /preview
     if (body.params) {
       const payload = buildCotizadorPayload(lead, { ...body.params, leadId: lead.id });
-      const res = await fetch(`${env.COTIZADOR_URL}/preview`, {
+      const res = await svcFetch(env.COTIZADOR_SVC, env.COTIZADOR_URL, "/preview", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Secret": env.COTIZADOR_SECRET },
+        headers: { "Content-Type": "application/json", "X-Secret": env.COTIZADOR_SECRET ?? "" },
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(12000),
       });
@@ -636,7 +652,8 @@ async function handleAdmin(request: Request, env: Env, url: URL): Promise<Respon
       return json({ error: "r2_not_configured" }, 500);
     }
 
-    const quote = await db.getQuoteByLeadId(sub[1]);
+    const leadId = sub[1];
+    const quote = await db.getQuoteByLeadId(leadId);
     const params = (quote?.params ?? {}) as Record<string, unknown>;
 
     const renderPayload = {
@@ -650,16 +667,26 @@ async function handleAdmin(request: Request, env: Env, url: URL): Promise<Respon
       descripcion:     params.descripcion     ?? lead.projectType ?? undefined,
     };
 
-    const renderRes = await fetch(`${env.RENDER_URL}/preview`, {
+    const renderRes = await svcFetch(env.RENDER_SVC, env.RENDER_URL, "/preview", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Secret": env.RENDER_SECRET },
+      headers: { "Content-Type": "application/json", "X-Secret": env.RENDER_SECRET ?? "" },
       body: JSON.stringify(renderPayload),
-      signal: AbortSignal.timeout(45000),
+      signal: AbortSignal.timeout(30000),
+    }).catch((err) => {
+      // Timeout o error en render — gpt-image-1 puede tardar >30s
+      console.error(`[render-timeout] Lead ${leadId}: ${err.message}`);
+      return null;
     });
+    if (!renderRes) {
+      return json({
+        ok: true,
+        quote,
+        renderError: "⏱ Timeout generando imagen — gpt-image-1 está saturado. Intenta de nuevo en 1-2 minutos.",
+      });
+    }
     if (!renderRes.ok) return json({ error: "render_error", status: renderRes.status }, 502);
     const renderData = await renderRes.json() as { ok: boolean; renderPng?: string | null; planoSvg: string; renderError?: string };
 
-    const leadId = sub[1];
     const renderKey = `renders/${leadId}/render.png`;
     const planKey   = `renders/${leadId}/plan.svg`;
 
@@ -724,9 +751,9 @@ async function handleAdmin(request: Request, env: Env, url: URL): Promise<Respon
     let cotProse = prose;
     if (!cotProse) {
       // Si no hay prosa guardada, generamos con /preview primero
-      const previewRes = await fetch(`${env.COTIZADOR_URL}/preview`, {
+      const previewRes = await svcFetch(env.COTIZADOR_SVC, env.COTIZADOR_URL, "/preview", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Secret": env.COTIZADOR_SECRET },
+        headers: { "Content-Type": "application/json", "X-Secret": env.COTIZADOR_SECRET ?? "" },
         body: JSON.stringify(cotLead),
         signal: AbortSignal.timeout(12000),
       });
@@ -736,9 +763,9 @@ async function handleAdmin(request: Request, env: Env, url: URL): Promise<Respon
       }
     }
 
-    const docxRes = await fetch(`${env.COTIZADOR_URL}/docx`, {
+    const docxRes = await svcFetch(env.COTIZADOR_SVC, env.COTIZADOR_URL, "/docx", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Secret": env.COTIZADOR_SECRET },
+      headers: { "Content-Type": "application/json", "X-Secret": env.COTIZADOR_SECRET ?? "" },
       body: JSON.stringify({ lead: cotLead, contenido: cotProse }),
       signal: AbortSignal.timeout(12000),
     });
@@ -798,12 +825,13 @@ async function handleAdmin(request: Request, env: Env, url: URL): Promise<Respon
 
   // GET /api/admin/leads/:id/followup  — estado del closer para este lead
   if (request.method === "GET" && sub[0] === "leads" && sub[2] === "followup") {
-    if (!env.CLOSER_URL) return json({ error: "closer_not_configured" }, 500);
+    if (!env.CLOSER_URL && !env.CLOSER_SVC) return json({ error: "closer_not_configured" }, 500);
     const lead = await db.getLeadById(sub[1]);
     if (!lead) return json({ error: "not_found" }, 404);
     const phoneClean = lead.phone.replace(/[^0-9+]/g, "");
-    const closerRes = await fetch(
-      `${env.CLOSER_URL}/estado/${encodeURIComponent(phoneClean)}`,
+    const closerRes = await svcFetch(
+      env.CLOSER_SVC, env.CLOSER_URL,
+      `/estado/${encodeURIComponent(phoneClean)}`,
       { signal: AbortSignal.timeout(5000) }
     ).catch(() => null);
     if (!closerRes || !closerRes.ok) return json({ error: "closer_unavailable" }, 502);
@@ -812,7 +840,7 @@ async function handleAdmin(request: Request, env: Env, url: URL): Promise<Respon
 
   // POST /api/admin/leads/:id/followup  — pausar/reanudar/toque-manual/editar-toques
   if (request.method === "POST" && sub[0] === "leads" && sub[2] === "followup") {
-    if (!env.CLOSER_URL || !env.CLOSER_SECRET) return json({ error: "closer_not_configured" }, 500);
+    if ((!env.CLOSER_URL && !env.CLOSER_SVC) || !env.CLOSER_SECRET) return json({ error: "closer_not_configured" }, 500);
     const lead = await db.getLeadById(sub[1]);
     if (!lead) return json({ error: "not_found" }, 404);
 
@@ -826,7 +854,7 @@ async function handleAdmin(request: Request, env: Env, url: URL): Promise<Respon
     const payload: Record<string, unknown> = { phone: lead.phone };
     if (accion === "editar-toques" && body.toques) payload.toques = body.toques;
 
-    const closerRes = await fetch(`${env.CLOSER_URL}/admin/${accion}`, {
+    const closerRes = await svcFetch(env.CLOSER_SVC, env.CLOSER_URL, `/admin/${accion}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Secret": env.CLOSER_SECRET },
       body: JSON.stringify(payload),

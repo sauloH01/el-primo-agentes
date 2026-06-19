@@ -114,6 +114,10 @@ export interface Env {
   ARTIFACTS?: R2Bucket; // bucket elprimo-artifacts (PNG, SVG, DOCX)
   CLOSER_URL?: string;
   CLOSER_SECRET?: string;
+  // Service Bindings — Worker-to-Worker directo (sin pasar por internet)
+  COTIZADOR_SVC?: Fetcher;
+  RENDER_SVC?: Fetcher;
+  CLOSER_SVC?: Fetcher;
 }
 
 // ─── Tipos del sistema de curación autónoma ───────────────────────────────
