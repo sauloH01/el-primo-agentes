@@ -61,6 +61,25 @@ export class Render extends Agent<Env, AgentState> {
       return this.preview(req);
     }
 
+    // POST /prompt-preview — devuelve solo el prompt de gpt-image-1 SIN generar imagen (gratis)
+    if (req.method === "POST" && url.pathname === "/prompt-preview") {
+      const secret = req.headers.get("X-Secret") ?? "";
+      if (this.env.RENDER_SECRET && secret !== this.env.RENDER_SECRET) {
+        return new Response("Unauthorized", { status: 403 });
+      }
+      try {
+        const r = (await req.json()) as RenderRequest;
+        if (!r?.nombre || !r?.tipoMueble) {
+          return Response.json({ ok: false, error: "Faltan nombre o tipoMueble." }, { status: 400 });
+        }
+        const { construirPromptRender } = await import("./knowledge");
+        const prompt = construirPromptRender(r);
+        return Response.json({ ok: true, prompt });
+      } catch (e) {
+        return Response.json({ ok: false, error: String(e) }, { status: 400 });
+      }
+    }
+
     return new Response("Ruta no encontrada", { status: 404 });
   }
 

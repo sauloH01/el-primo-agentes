@@ -648,6 +648,51 @@ async function handleAdmin(request: Request, env: Env, url: URL): Promise<Respon
     return json(quote);
   }
 
+  // POST /api/admin/leads/:id/quote/render/prompt-preview — preview del prompt sin generar imagen
+  if (request.method === "POST" && sub[0] === "leads" && sub[2] === "quote" && sub[3] === "render" && sub[4] === "prompt-preview") {
+    const lead = await db.getLeadById(sub[1]);
+    if (!lead) return json({ error: "not_found" }, 404);
+    if (!env.RENDER_URL || !env.RENDER_SECRET) return json({ error: "render_not_configured" }, 500);
+
+    const bodyRaw2 = await request.json().catch(() => ({})) as Record<string, unknown>;
+    const cp2 = (bodyRaw2.renderParams ?? {}) as Record<string, unknown>;
+    const quote2 = await db.getQuoteByLeadId(sub[1]);
+    const qp2 = (quote2?.params ?? {}) as Record<string, unknown>;
+
+    const previewPayload = {
+      nombre:         lead.name ?? "Cliente",
+      tipoMueble:    (cp2.tipoMueble as string) ?? mapTipoMueble(lead.projectType),
+      metros:         (cp2.metros as number)     ?? qp2.metros      ?? undefined,
+      configuracion:  (cp2.configuracion as string) ?? qp2.configuracion ?? undefined,
+      colorPreferido: (cp2.colorPreferido as string) ?? qp2.colorPreferido ?? undefined,
+      ledIntegrado:   (cp2.ledIntegrado as boolean) ?? qp2.ledIntegrado ?? undefined,
+      meson:          (cp2.meson as string)   ?? qp2.meson  ?? undefined,
+      descripcion:    (cp2.descripcion as string) ?? qp2.descripcion ?? lead.projectType ?? undefined,
+      material:       (cp2.material as string)  ?? qp2.material ?? undefined,
+      ambiente:       (cp2.ambiente as string)  ?? undefined,
+      estilo:         (cp2.estilo as string)    ?? undefined,
+      anguloCamara:   (cp2.anguloCamara as string) ?? undefined,
+      iluminacion:    (cp2.iluminacion as string)  ?? undefined,
+      colorPared:     (cp2.colorPared as string)   ?? undefined,
+      tipoPiso:       (cp2.tipoPiso as string)     ?? undefined,
+      sizeAmbiente:   (cp2.sizeAmbiente as string) ?? undefined,
+      elementosExtra: (cp2.elementosExtra as string[]) ?? undefined,
+      noIncluir:      (cp2.noIncluir as string)    ?? undefined,
+      promptExtra:    (cp2.promptExtra as string)  ?? undefined,
+    };
+
+    const ppRes = await svcFetch(env.RENDER_SVC, env.RENDER_URL, "/prompt-preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Secret": env.RENDER_SECRET ?? "" },
+      body: JSON.stringify(previewPayload),
+      signal: AbortSignal.timeout(5000),
+    }).catch(() => null);
+
+    if (!ppRes || !ppRes.ok) return json({ error: "render_service_error" }, 502);
+    const ppData = await ppRes.json() as { ok: boolean; prompt: string };
+    return json(ppData);
+  }
+
   // POST /api/admin/leads/:id/quote/render  — genera render+plano, guarda en R2
   if (request.method === "POST" && sub[0] === "leads" && sub[2] === "quote" && sub[3] === "render") {
     const lead = await db.getLeadById(sub[1]);
@@ -663,15 +708,31 @@ async function handleAdmin(request: Request, env: Env, url: URL): Promise<Respon
     const quote = await db.getQuoteByLeadId(leadId);
     const params = (quote?.params ?? {}) as Record<string, unknown>;
 
+    // Leer body — puede traer renderParams custom del Render Studio
+    const bodyRaw = await request.json().catch(() => ({})) as Record<string, unknown>;
+    const cp = (bodyRaw.renderParams ?? {}) as Record<string, unknown>;
+
     const renderPayload = {
-      nombre: lead.name ?? "Cliente",
-      tipoMueble: mapTipoMueble(lead.projectType),
-      metros:          params.metros          ?? undefined,
-      configuracion:   params.configuracion   ?? undefined,
-      colorPreferido:  params.colorPreferido  ?? undefined,
-      ledIntegrado:    params.ledIntegrado    ?? undefined,
-      meson:           params.meson           ?? undefined,
-      descripcion:     params.descripcion     ?? lead.projectType ?? undefined,
+      nombre:          lead.name ?? "Cliente",
+      tipoMueble:     (cp.tipoMueble as string) ?? mapTipoMueble(lead.projectType),
+      metros:          (cp.metros as number)    ?? params.metros          ?? undefined,
+      configuracion:   (cp.configuracion as string) ?? params.configuracion   ?? undefined,
+      colorPreferido:  (cp.colorPreferido as string)  ?? params.colorPreferido  ?? undefined,
+      ledIntegrado:    (cp.ledIntegrado  as boolean)  ?? params.ledIntegrado    ?? undefined,
+      meson:           (cp.meson as string)  ?? params.meson           ?? undefined,
+      descripcion:     (cp.descripcion as string) ?? params.descripcion  ?? lead.projectType ?? undefined,
+      material:        (cp.material as string) ?? params.material        ?? undefined,
+      // Render Studio fields
+      ambiente:        (cp.ambiente as string)        ?? undefined,
+      estilo:          (cp.estilo as string)          ?? undefined,
+      anguloCamara:    (cp.anguloCamara as string)    ?? undefined,
+      iluminacion:     (cp.iluminacion as string)     ?? undefined,
+      colorPared:      (cp.colorPared as string)      ?? undefined,
+      tipoPiso:        (cp.tipoPiso as string)        ?? undefined,
+      sizeAmbiente:    (cp.sizeAmbiente as string)    ?? undefined,
+      elementosExtra:  (cp.elementosExtra as string[]) ?? undefined,
+      noIncluir:       (cp.noIncluir as string)       ?? undefined,
+      promptExtra:     (cp.promptExtra as string)     ?? undefined,
     };
 
     const renderRes = await svcFetch(env.RENDER_SVC, env.RENDER_URL, "/preview", {

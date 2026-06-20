@@ -13,18 +13,31 @@ export type TipoMueble =
   | "alacena"
   | "otro";
 
-/** Lo que llega del cotizador o de una llamada directa. */
+/** Lo que llega del cotizador o del Render Studio del panel admin. */
 export interface RenderRequest {
   nombre: string;
   phone?: string;
   correo?: string;
   tipoMueble: TipoMueble;
-  metros?: number; // metros lineales (cocina/puerta) o m² (closet)
+  metros?: number;
   configuracion?: "L" | "U" | "lineal" | "isla" | "otra";
-  colorPreferido?: string; // "blanco mate", "roble", "nogal", "gris"...
+  colorPreferido?: string;
   ledIntegrado?: boolean;
-  meson?: string; // "granito", "cuarzo", "sinterizado"
-  descripcion?: string; // texto libre del cliente
+  meson?: string;
+  descripcion?: string;
+  material?: string;
+
+  // Render Studio — personalizacion de Audenar
+  ambiente?: string;         // "apartamento" | "casa" | "finca" | "loft" | "oficina"
+  estilo?: string;           // "minimalista" | "moderno" | "contemporaneo" | "industrial" | "nordico" | "clasico"
+  anguloCamara?: string;     // "3_4" | "frontal" | "lateral" | "perspectiva"
+  iluminacion?: string;      // "dia" | "tarde" | "noche" | "estudio"
+  colorPared?: string;       // "blanco calido" | "beige" | "gris paloma" | custom
+  tipoPiso?: string;         // "porcelana_gris" | "madera" | "concreto" | "ceramica"
+  sizeAmbiente?: string;     // "compacto" | "mediano" | "amplio"
+  elementosExtra?: string[]; // ["plantas", "electrodomesticos", "decoracion", ...]
+  noIncluir?: string;        // guia negativa — que evitar en la imagen
+  promptExtra?: string;      // instrucciones libres finales
 }
 
 export interface Env {
