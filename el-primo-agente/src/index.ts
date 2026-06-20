@@ -22,8 +22,9 @@ const VALID_STAGES: Stage[] = ["nuevo", "en_proceso", "calificado", "cotizado", 
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Max-Age": "86400",
 };
 
 export default {
@@ -45,7 +46,13 @@ export default {
         return await handleCloserEvent(request, env);
       }
       if (pathname.startsWith("/api/admin/")) {
-        return await handleAdmin(request, env, url);
+        if (request.method === "OPTIONS") {
+          return new Response(null, { status: 204, headers: CORS_HEADERS });
+        }
+        const adminRes = await handleAdmin(request, env, url);
+        const res = new Response(adminRes.body, adminRes);
+        Object.entries(CORS_HEADERS).forEach(([k, v]) => res.headers.set(k, v));
+        return res;
       }
       if (pathname === "/" || pathname === "/health") {
         return json({ ok: true, service: "el-primo-agente" });
