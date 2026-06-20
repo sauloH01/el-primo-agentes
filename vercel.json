@@ -1,0 +1,11 @@
+{
+  "functions": {
+    "api/**/*": {}
+  },
+  "ignoreCommand": "exit 0",
+  "buildCommand": "exit 0",
+  "outputDirectory": "public",
+  "github": {
+    "silent": true
+  }
+}
