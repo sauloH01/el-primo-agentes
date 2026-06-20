@@ -10,7 +10,7 @@ npx wrangler deploy
 Set-Location ".."
 Set-Location "el-primo-render"
 npx wrangler deploy
-Set-Location "..\..\..\landing"
+Set-Location "..\..\landing"
 Remove-Item -Force ".git\index.lock" -ErrorAction SilentlyContinue
 git add -A
 git commit -m "feat(render-studio): configurador avanzado de render en panel admin"

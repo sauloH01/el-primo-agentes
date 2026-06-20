@@ -479,7 +479,12 @@ function svcFetch(
   path: string,
   init?: RequestInit
 ): Promise<Response> {
-  if (svc) return svc.fetch(new Request(`https://svc${path}`, init));
+  if (svc) {
+    // AbortSignal en new Request() interfiere con el body via service binding
+    // (el Worker runtime no lo soporta igual que fetch()). Se descarta aquí.
+    const { signal: _s, ...safeInit } = init ?? {};
+    return svc.fetch(new Request(`https://svc${path}`, safeInit));
+  }
   return fetch(`${baseUrl}${path}`, init);
 }
 
@@ -488,9 +493,11 @@ function svcFetch(
 /* ------------------------------------------------------------------ */
 
 function buildCotizadorPayload(lead: { name: string | null; phone: string; city: string | null; budget: number; projectType: string | null }, params: Record<string, unknown> = {}) {
+  const nombre = (((params.nombre as string) ?? lead.name ?? "").trim()) || "Cliente";
+  const telefono = (lead.phone ?? "").replace(/\D/g, "") || "0";
   return {
-    nombre: (params.nombre as string) ?? lead.name ?? "Cliente",
-    telefono: lead.phone.replace(/\D/g, ""),
+    nombre,
+    telefono,
     zona: (params.zona as string) ?? lead.city ?? "Fusagasugá",
     tiposMueble: Array.isArray(params.tiposMueble) && (params.tiposMueble as string[]).length
       ? params.tiposMueble
