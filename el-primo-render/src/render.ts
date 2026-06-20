@@ -16,7 +16,7 @@ export async function generarRender(r: RenderRequest, env: Env): Promise<RenderR
       model: env.OPENAI_IMAGE_MODEL || "gpt-image-1",
       prompt,
       size: (env.IMAGE_SIZE as "1024x1024" | "1536x1024" | "1024x1536") || "1536x1024",
-      quality: (env.IMAGE_QUALITY as "low" | "medium" | "high") || "medium",
+      quality: (env.IMAGE_QUALITY as "low" | "medium" | "high") || "high",
       n: 1,
     });
 
