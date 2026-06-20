@@ -41,7 +41,7 @@ Redacta la propuesta siguiendo EXACTAMENTE el formato JSON pedido.`;
       { role: "system", content: SYSTEM_PROMPT_CONTENIDO },
       { role: "user", content: userMsg },
     ],
-    temperature: 0.7,
+    temperature: 0.4,
   });
 
   const content = resp.choices[0]?.message?.content ?? "{}";

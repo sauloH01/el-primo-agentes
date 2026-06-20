@@ -17,15 +17,20 @@ export async function generarRespuestaChat(
 ): Promise<[string, boolean, boolean]> {
   const client = new OpenAI({ apiKey });
 
+  const fechaHoy = new Date().toLocaleDateString("es-CO", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+    timeZone: "America/Bogota",
+  });
+
   const systemContent = contexto
-    ? `${CLOSER_SYSTEM_PROMPT}\n\nCONTEXTO DE ESTE LEAD (cotización ya enviada por Audenar; NO inventes precios nuevos):\n${contexto}`
-    : `${CLOSER_SYSTEM_PROMPT}\n\n(Sin contexto previo: trata al lead con calidez y averigua en qué proyecto está interesado.)`;
+    ? `${CLOSER_SYSTEM_PROMPT}\n\nFECHA ACTUAL (Colombia): ${fechaHoy}\nCONTEXTO DE ESTE LEAD (cotización ya enviada por Audenar; NO inventes precios nuevos):\n${contexto}`
+    : `${CLOSER_SYSTEM_PROMPT}\n\nFECHA ACTUAL (Colombia): ${fechaHoy}\n(Sin contexto previo: trata al lead con calidez y averigua en qué proyecto está interesado.)`;
 
   const resp = await client.chat.completions.create({
     model,
     messages: [{ role: "system", content: systemContent }, ...messages],
-    max_tokens: 320,
-    temperature: 0.7,
+    max_tokens: 280,
+    temperature: 0.4,
   });
 
   const raw =

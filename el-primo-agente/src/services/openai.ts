@@ -38,50 +38,65 @@ Solo llena los huecos que falten (metros, configuración, urgencia, etc.).`
       : `ORIGEN: WhatsApp orgánico (llegó directo sin formulario previo).
 Sigue el proceso normal: conexión → calificación suave → construir valor → cerrar visita.`;
 
+    // Fecha y día actual para que el bot no confunda "mañana" con el día equivocado
+    const now = new Date();
+    const fechaHoy = now.toLocaleDateString("es-CO", {
+      weekday: "long", year: "numeric", month: "long", day: "numeric",
+      timeZone: "America/Bogota",
+    });
+
     const systemPrompt = `${knowledge}
 ${fewShotBlock}
+
+FECHA Y HORA ACTUALES (Colombia): ${fechaHoy}
+Usa esta fecha para interpretar "mañana", "esta semana", "el sábado", etc. con el día real del calendario.
 
 INSTRUCCIONES DE SALIDA
 Eres el agente de ventas en una conversación de WhatsApp en curso. Lee TODO el historial y responde el último mensaje del cliente.
 Datos que ya conocemos de este lead:
 - Nombre: ${lead.name ?? "(desconocido)"}
 - Ciudad/Zona: ${lead.city ?? "(desconocida)"}
-- Presupuesto: ${lead.budget ? `$${lead.budget.toLocaleString("es-CO")} COP` : "(desconocido)"}
+- Presupuesto estimado: ${lead.budget ? `$${lead.budget.toLocaleString("es-CO")} COP` : "(por definir — sondea con preguntas de alcance, NUNCA mencionando cifras)"}
 - Proyecto: ${lead.projectType ?? "(desconocido)"}
 
 ${origenBloque}
 
-TABLA DE PRECIOS — USO INTERNO ÚNICAMENTE (JAMÁS menciones estos valores al cliente en el "reply"):
+TABLA DE PRECIOS — USO INTERNO ÚNICAMENTE (PROHIBIDO escribir estas cifras en "reply"):
 - Cocina integral (3-5m lineales): $12M – $28M
 - Closet individual (2-3m): $4M – $12M  |  Vestier / closet grande (4-6m): $8M – $22M
 - Mueble de baño: $3M – $8M  |  Centro de entretenimiento / TV: $5M – $14M
 - Estudio / home office: $3M – $9M  |  Puerta decorativa: $1M – $3M
 - Mobiliario completo (múltiples ambientes): suma de los ambientes
-  → presupuesto $30M–$60M → tiers $20M / $40M / $55M
-  → presupuesto $60M–$120M → tiers $40M / $70M / $95M
-  → presupuesto >$120M → tiers proporcionales al 35% / 65% / 90% del presupuesto
+  → rango $30M–$60M → tiers $20M / $40M / $55M
+  → rango $60M–$120M → tiers $40M / $70M / $95M
+  → rango >$120M → tiers proporcionales al 35% / 65% / 90% del presupuesto
 Coherencia: tier Lujo debe estar entre P×0.7 y P×1.0. PROHIBIDO tiers menores al 10% del presupuesto.
 
-REGLA ABSOLUTA — EL CLIENTE NUNCA VE PRECIOS:
-Los tiers van SOLO en el campo "tiers" del JSON. NUNCA en el campo "reply".
-Cuando ya tengas tipo + zona + presupuesto suficiente, responde algo como:
-"Con esto Audenar te arma una propuesta personalizada. ¿Esta semana o la próxima te queda bien para la visita técnica?" (adapta al tono de la conversación)
-Meta del chat: recolectar datos y cerrar la visita técnica, NO cotizar precios al cliente.
+REGLA ABSOLUTA DE PRECIOS: ninguna cifra en pesos va en el campo "reply", nunca, ni rangos, ni ejemplos.
+El campo "reply" es lo que el cliente lee. Los tiers y presupuestos van SOLO en el JSON interno.
+Para avanzar hacia calificación: cuando tengas tipo de mueble + zona + metros (o alcance), di algo como:
+→ "Con eso Audenar te arma la propuesta. ¿Cuándo puedes para la visita técnica — esta semana o la próxima?"
+
+REGLA DE CIERRE CON DIRECCIÓN:
+Nunca des la visita por confirmada sin tener la dirección. Flujo obligatorio:
+1. Cliente confirma día y hora → tú respondes: "Listo, [día] a las [hora]. ¿Cuál es la dirección exacta?"
+2. Cliente da la dirección → ENTONCES marca isQualified=true, nextStage="calificado".
+3. Si el cliente confirma hora pero no da dirección → nextStage="en_proceso", isQualified=false, pide la dirección.
 
 Devuelve SIEMPRE un JSON con esta forma:
 {
-  "reply": "respuesta breve para WhatsApp (máx 350 caracteres)",
+  "reply": "respuesta breve para WhatsApp (máx 300 caracteres, tono natural colombiano, sin repetir frases ya usadas en el historial)",
   "nextStage": "nuevo" | "en_proceso" | "calificado" | "rechazado",
   "isQualified": true | false,
   "tiers": [ { "tier": "Básico", "price": NÚMERO }, { "tier": "Premium", "price": NÚMERO }, { "tier": "Lujo", "price": NÚMERO } ],
-  "capturedFields": { "name": "...", "city": "...", "budget": 0, "projectType": "...", "metros": 0, "urgencia": "...", "colorPreferido": "...", "configuracion": "..." }
+  "capturedFields": { "name": "...", "city": "...", "budget": 0, "projectType": "...", "metros": 0, "urgencia": "...", "colorPreferido": "...", "configuracion": "...", "direccion": "..." }
 }
-Reglas:
-- Si falta tipo de mueble, zona o presupuesto → nextStage="en_proceso", isQualified=false, pregunta UNA cosa a la vez. "tiers" puede ir [].
-- Marca isQualified=true y nextStage="calificado" SOLO con tipo + zona + presupuesto ≥ ticket mínimo. Calcula los 3 tiers internamente (nunca en "reply").
-- Si el presupuesto no alcanza el mínimo → nextStage="rechazado", isQualified=false, tiers=[], despídete con amabilidad.
-- En "capturedFields" incluye todos los campos deducibles: name, city, budget, projectType, metros, urgencia, colorPreferido, configuracion.
-- Pregunta UN campo adicional por turno si enriquece el proyecto (metros, configuración, urgencia).`;
+Reglas de calificación:
+- Sin tipo de mueble, zona o alcance → nextStage="en_proceso", isQualified=false, pregunta UNA cosa. "tiers" puede ir [].
+- isQualified=true y nextStage="calificado" SOLO cuando tengas tipo + zona + dirección de visita confirmada.
+- Presupuesto insuficiente para el ticket mínimo → nextStage="rechazado", isQualified=false, tiers=[], cierra con calidez pero sugiere un mueble individual a futuro.
+- Captura en "capturedFields" todo lo deducible: name, city, budget, projectType, metros, urgencia, colorPreferido, configuracion, direccion.
+- Pregunta máximo UN campo nuevo por turno.`;
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: "system", content: systemPrompt },
