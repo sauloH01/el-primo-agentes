@@ -179,16 +179,32 @@ async function handleLandingLead(request: Request, env: Env): Promise<Response> 
     leadId = lead.id;
   }
 
-  // Guarda el mensaje del formulario como nota
-  if (body.mensaje?.trim()) {
-    await db.addNote(leadId, `[landing] ${body.mensaje.trim()}`);
+  // Datos del formulario que no tienen columna propia (condominio, quién recibe,
+  // fecha objetivo, mensaje) van a las notas para que Audenar los vea en /admin.
+  // Se AGREGAN a las notas existentes: antes se sobrescribían y un lead que ya
+  // venía de WhatsApp perdía lo que Audenar había anotado.
+  const condominio = body.condominio?.trim();
+  const landingLines = [
+    condominio && condominio !== "Otro / no aplica" ? `Condominio: ${condominio}` : "",
+    body.quienRecibe?.trim()   ? `Quién recibe: ${body.quienRecibe.trim()}`     : "",
+    body.fechaObjetivo?.trim() ? `Fecha objetivo: ${body.fechaObjetivo.trim()}` : "",
+    body.mensaje?.trim()       ? `Mensaje: ${body.mensaje.trim()}`              : "",
+  ].filter(Boolean);
+  if (landingLines.length > 0) {
+    const landingNote = `[landing] ${landingLines.join(" · ")}`;
+    const previas = existing?.notas?.trim();
+    await db.addNote(leadId, previas ? `${previas}\n\n${landingNote}` : landingNote);
   }
 
   await db.logEvent("landing_form", leadId, {
-    nombre:       body.nombre,
-    zona:         body.zona,
-    tipo:         body.tipo,
-    presupuesto:  body.presupuesto,
+    nombre:        body.nombre,
+    zona:          body.zona,
+    tipo:          body.tipo,
+    presupuesto:   body.presupuesto,
+    condominio:    body.condominio,
+    quienRecibe:   body.quienRecibe,
+    fechaObjetivo: body.fechaObjetivo,
+    source:        body.source,
     utm_source:   body.utm_source,
     utm_medium:   body.utm_medium,
     utm_campaign: body.utm_campaign,
